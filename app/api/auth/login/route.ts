@@ -1,0 +1,135 @@
+import { NextResponse } from "next/server"
+import { storage } from "@/lib/db/storage"
+import { verifyPassword, generateToken, hashPassword } from "@/lib/auth/client-utils"
+import type { Session, User } from "@/lib/db/models"
+
+const MAX_FAILED_ATTEMPTS = 5
+const LOCK_DURATION = 300000 // 5 minutes in milliseconds
+
+const ADMIN_USERNAME = "admin"
+const ADMIN_PASSWORD = "Nazzelandavionna62529"
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json()
+    const { usernameOrEmail, password } = body
+
+    if (!usernameOrEmail || !password) {
+      return NextResponse.json({ error: "All fields are required" }, { status: 400 })
+    }
+
+    if (usernameOrEmail === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+      // Check if admin user exists, if not create it
+      let adminUser = storage.getUserByUsername(ADMIN_USERNAME)
+
+      if (!adminUser) {
+        adminUser = {
+          id: "admin-" + Date.now().toString(),
+          username: ADMIN_USERNAME,
+          email: "admin@nazzelandavionna.com",
+          password: hashPassword(ADMIN_PASSWORD),
+          dateOfBirth: "1990-01-01",
+          isVerified: true,
+          role: "admin",
+          failedLoginAttempts: 0,
+          agreedToTerms: true,
+          postCount: 0,
+          isOnline: true,
+          lastSeen: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as User
+        storage.saveUser(adminUser)
+      }
+
+      // Create admin session
+      const token = generateToken()
+      const session: Session = {
+        id: Date.now().toString(),
+        userId: adminUser.id,
+        token,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        createdAt: new Date(),
+      }
+      storage.saveSession(session)
+
+      return NextResponse.json({
+        success: true,
+        message: "Admin login successful",
+        token,
+        user: {
+          id: adminUser.id,
+          username: adminUser.username,
+          email: adminUser.email,
+          role: "admin",
+        },
+      })
+    }
+
+    // Find user by email or username
+    let user = storage.getUserByEmail(usernameOrEmail)
+    if (!user) {
+      user = storage.getUserByUsername(usernameOrEmail)
+    }
+
+    if (!user) {
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
+    }
+
+    // Check if account is locked
+    if (user.accountLockedUntil && new Date() < user.accountLockedUntil) {
+      const remainingTime = Math.ceil((user.accountLockedUntil.getTime() - Date.now()) / 1000)
+      return NextResponse.json({ error: `Account locked. Try again in ${remainingTime} seconds.` }, { status: 423 })
+    }
+
+    // Check if email is verified
+    if (!user.isVerified) {
+      return NextResponse.json({ error: "Please verify your email first" }, { status: 403 })
+    }
+
+    // Verify password
+    if (!verifyPassword(password, user.password)) {
+      user.failedLoginAttempts += 1
+
+      if (user.failedLoginAttempts >= MAX_FAILED_ATTEMPTS) {
+        user.accountLockedUntil = new Date(Date.now() + LOCK_DURATION)
+        user.failedLoginAttempts = 0
+        storage.saveUser(user)
+        return NextResponse.json({ error: "Too many failed attempts. Account locked for 5 minutes." }, { status: 423 })
+      }
+
+      storage.saveUser(user)
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
+    }
+
+    // Reset failed attempts
+    user.failedLoginAttempts = 0
+    user.accountLockedUntil = undefined
+    storage.saveUser(user)
+
+    // Create session
+    const token = generateToken()
+    const session: Session = {
+      id: Date.now().toString(),
+      userId: user.id,
+      token,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      createdAt: new Date(),
+    }
+    storage.saveSession(session)
+
+    return NextResponse.json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+      },
+    })
+  } catch (error) {
+    console.error("[v0] Login error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
