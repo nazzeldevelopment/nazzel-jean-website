@@ -1,26 +1,22 @@
 import nodemailer from "nodemailer"
 
+const DEFAULT_FROM_EMAIL = process.env.EMAIL_FROM || process.env.NOREPLY_EMAIL || "no-reply@nazzelandavionna.site"
+
 // SMTP transporter
 export const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: Number(process.env.SMTP_PORT) || 587,
   secure: false,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: process.env.SMTP_USER || "",
+    pass: process.env.SMTP_PASS || "",
   },
 })
 
-// Default "from" email
-const DEFAULT_FROM_EMAIL = process.env.EMAIL_FROM || "no-reply@nazzelandavionna.site"
-
-// =====================
-// Email Templates
-// =====================
+// Email templates
 export const emailTemplates = {
-  // Email verification
   emailVerification: (username: string, verificationCode: string) => ({
-    subject: "✨ Welcome to Nazzel & Avionna's Love Story - Verify Your Email",
+    subject: "✨ Verify Your Email - Nazzel & Avionna",
     html: `
       <!DOCTYPE html>
       <html>
@@ -35,6 +31,7 @@ export const emailTemplates = {
           .header h1 { color: white; margin: 0; font-size: 28px; font-weight: 300; }
           .content { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
           .verification-code { background: linear-gradient(135deg, #ff6b9d, #c44569); color: white; padding: 20px; border-radius: 10px; text-align: center; margin: 30px 0; font-size: 24px; font-weight: bold; letter-spacing: 3px; }
+          .btn { display: inline-block; padding: 15px 30px; font-size: 16px; font-weight: bold; color: white; text-decoration: none; border-radius: 8px; background: linear-gradient(135deg, #ff6b9d, #c44569); margin: 20px 0; }
           .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
         </style>
       </head>
@@ -45,10 +42,10 @@ export const emailTemplates = {
           </div>
           <div class="content">
             <h2>Hello ${username}!</h2>
-            <p>Welcome to <strong>Nazzel & Avionna's</strong> community! Please verify your email using the code below:</p>
+            <p>Verify your email using the code below:</p>
             <div class="verification-code">${verificationCode}</div>
-            <p>This verification code expires in <strong>24 hours</strong>.</p>
-            <p>If you didn't create an account, just ignore this email.</p>
+            <a href="https://www.nazzelandavionna.site/verify?code=${verificationCode}" class="btn">Verify Now</a>
+            <p>If you didn't create an account, ignore this email.</p>
             <p>With love,<br><strong>Nazzel & Avionna</strong> 💕</p>
           </div>
           <div class="footer">
@@ -61,9 +58,8 @@ export const emailTemplates = {
     `,
   }),
 
-  // Password reset
   passwordReset: (username: string, resetCode: string) => ({
-    subject: "🔐 Password Reset Request - Nazzel & Avionna's Love Story",
+    subject: "🔐 Reset Your Password - Nazzel & Avionna",
     html: `
       <!DOCTYPE html>
       <html>
@@ -78,6 +74,7 @@ export const emailTemplates = {
           .header h1 { color: white; margin: 0; font-size: 28px; font-weight: 300; }
           .content { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
           .reset-code { background: linear-gradient(135deg, #ff6b9d, #c44569); color: white; padding: 20px; border-radius: 10px; text-align: center; margin: 30px 0; font-size: 24px; font-weight: bold; letter-spacing: 3px; }
+          .btn { display: inline-block; padding: 15px 30px; font-size: 16px; font-weight: bold; color: white; text-decoration: none; border-radius: 8px; background: linear-gradient(135deg, #ff6b9d, #c44569); margin: 20px 0; }
           .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0; }
           .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
         </style>
@@ -85,14 +82,15 @@ export const emailTemplates = {
       <body>
         <div class="container">
           <div class="header">
-            <h1>🔐 Password Reset Request</h1>
+            <h1>🔐 Password Reset</h1>
           </div>
           <div class="content">
             <h2>Hello ${username}!</h2>
-            <p>Use the code below to reset your password:</p>
+            <p>Reset your password using the code below:</p>
             <div class="reset-code">${resetCode}</div>
+            <a href="https://www.nazzelandavionna.site/reset-password?code=${resetCode}" class="btn">Reset Password</a>
             <div class="warning">
-              ⚠️ This code expires in 1 hour. If you didn't request a reset, ignore this email.
+              ⚠️ Code expires in 1 hour. Ignore if you didn't request this.
             </div>
             <p>With love,<br><strong>Nazzel & Avionna</strong> 💕</p>
           </div>
@@ -106,9 +104,8 @@ export const emailTemplates = {
     `,
   }),
 
-  // Welcome member
   welcomeMember: (username: string) => ({
-    subject: "🎉 Welcome to Our Community! - You're Now a Verified Member",
+    subject: "🎉 Welcome to Our Community!",
     html: `
       <!DOCTYPE html>
       <html>
@@ -122,6 +119,7 @@ export const emailTemplates = {
           .header { text-align: center; padding: 30px 0; background: linear-gradient(135deg, #ff6b9d, #c44569); border-radius: 15px; margin-bottom: 30px; }
           .header h1 { color: white; margin: 0; font-size: 28px; font-weight: 300; }
           .content { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+          .btn { display: inline-block; padding: 15px 30px; font-size: 16px; font-weight: bold; color: white; text-decoration: none; border-radius: 8px; background: linear-gradient(135deg, #ff6b9d, #c44569); margin: 20px 0; }
           .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
         </style>
       </head>
@@ -132,13 +130,8 @@ export const emailTemplates = {
           </div>
           <div class="content">
             <h2>Hello ${username}!</h2>
-            <p>Your email is verified. You now have full access to our community!</p>
-            <ul>
-              <li>💬 Forum Discussions</li>
-              <li>📸 Photo Gallery</li>
-              <li>💌 Private Messages</li>
-              <li>🎯 Community Events</li>
-            </ul>
+            <p>Your email is verified. Access all features now!</p>
+            <a href="https://www.nazzelandavionna.site/forum" class="btn">Visit Forum</a>
             <p>With love,<br><strong>Nazzel & Avionna</strong> 💕</p>
           </div>
           <div class="footer">
@@ -151,7 +144,6 @@ export const emailTemplates = {
     `,
   }),
 
-  // Forum notification
   forumNotification: (username: string, postTitle: string, notificationType: string) => ({
     subject: `🔔 New Activity in Forum - ${postTitle}`,
     html: `
@@ -168,6 +160,7 @@ export const emailTemplates = {
           .header h1 { color: white; margin: 0; font-size: 28px; font-weight: 300; }
           .content { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
           .notification { background: #e8f5e8; border: 1px solid #4caf50; padding: 20px; border-radius: 10px; margin: 20px 0; }
+          .btn { display: inline-block; padding: 15px 30px; font-size: 16px; font-weight: bold; color: white; text-decoration: none; border-radius: 8px; background: linear-gradient(135deg, #ff6b9d, #c44569); margin: 20px 0; }
           .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
         </style>
       </head>
@@ -178,11 +171,12 @@ export const emailTemplates = {
           </div>
           <div class="content">
             <h2>Hello ${username}!</h2>
-            <p>New forum activity:</p>
+            <p>There's new activity in our forum:</p>
             <div class="notification">
-              <strong>${notificationType}</strong><br>Post: ${postTitle}
+              <h3>${notificationType}</h3>
+              <p><strong>Post:</strong> ${postTitle}</p>
             </div>
-            <p>Check it out!</p>
+            <a href="https://www.nazzelandavionna.site/forum" class="btn">View Forum</a>
             <p>With love,<br><strong>Nazzel & Avionna</strong> 💕</p>
           </div>
           <div class="footer">
@@ -194,75 +188,4 @@ export const emailTemplates = {
       </html>
     `,
   }),
-}
-
-// =====================
-// Send email generic function
-// =====================
-export async function sendEmail({
-  to,
-  subject,
-  html,
-  from = `"Nazzel & Avionna" <${DEFAULT_FROM_EMAIL}>`,
-}: {
-  to: string
-  subject: string
-  html: string
-  from?: string
-}) {
-  const info = await transporter.sendMail({
-    from,
-    to,
-    subject,
-    html,
-    envelope: {
-      from: DEFAULT_FROM_EMAIL,
-      to,
-    },
-    replyTo: DEFAULT_FROM_EMAIL,
-  })
-  return { success: true, messageId: info.messageId }
-}
-
-// Convenience functions
-export async function sendVerificationEmail(to: string, username: string, verificationCode: string) {
-  const template = emailTemplates.emailVerification(username, verificationCode)
-  return sendEmail({ to, subject: template.subject, html: template.html })
-}
-
-export async function sendPasswordResetEmail(to: string, username: string, resetCode: string) {
-  const template = emailTemplates.passwordReset(username, resetCode)
-  return sendEmail({ to, subject: template.subject, html: template.html })
-}
-
-export async function sendWelcomeEmail(to: string, username: string) {
-  const template = emailTemplates.welcomeMember(username)
-  return sendEmail({ to, subject: template.subject, html: template.html })
-}
-
-export async function sendForumNotificationEmail(to: string, username: string, postTitle: string, notificationType: string) {
-  const template = emailTemplates.forumNotification(username, postTitle, notificationType)
-  return sendEmail({ to, subject: template.subject, html: template.html })
-}
-
-// Admin log email
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL
-export async function sendAdminLog(subject: string, html: string) {
-  if (!ADMIN_EMAIL) return
-  try {
-    await sendEmail({ to: ADMIN_EMAIL, subject, html })
-  } catch (_) {}
-}
-
-// Test email
-export async function sendTestEmail(to: string) {
-  return sendEmail({
-    to,
-    subject: "🧪 Test Email - Nazzel & Avionna's Love Story",
-    html: `<div style="font-family: Arial, sans-serif; padding:20px; background:#fdf0f5;">
-      <h2>✅ Test Email Successful!</h2>
-      <p>If you received this email, the email system is working.</p>
-      <p>With love, <strong>Nazzel & Avionna</strong> 💕</p>
-    </div>`,
-  })
 }
