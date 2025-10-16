@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import nodemailer from "nodemailer"
 
 // Professional email configuration for Nazzel & Avionna website
@@ -283,10 +284,25 @@ export const emailTemplates = {
 }
 
 // Main email sending function
+=======
+import nodemailer from "nodemailer";
+
+export const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT) || 587,
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+>>>>>>> 09a8bea5699e9a9293bec27419269632d11973df
 export async function sendEmail({
   to,
   subject,
   html,
+<<<<<<< HEAD
   from = `"Nazzel & Avionna" <donotreply@nazzelandavionna.site>`,
 }: {
   to: string
@@ -404,3 +420,17 @@ export async function sendTestEmail(to: string) {
     `,
   })
 }
+=======
+}: {
+  to: string;
+  subject: string;
+  html: string;
+}) {
+  await transporter.sendMail({
+    from: `"Nazzel & Avionna" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    html,
+  });
+}
+>>>>>>> 09a8bea5699e9a9293bec27419269632d11973df
