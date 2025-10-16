@@ -46,6 +46,7 @@ import {
 } from "lucide-react"
 import type { ForumPost, User } from "@/lib/db/models"
 import { EnhancedHeader } from "@/components/enhanced-header"
+import { apiFetch } from "@/lib/utils"
 import { NotificationCenter } from "@/components/notification-center"
 
 const categories = ["Love Letters", "Memories", "Thoughts & Quotes", "Future Dreams", "Open Talks"]
@@ -96,7 +97,7 @@ export default function ForumPage() {
       // Fetch user data from API
       const fetchUser = async () => {
         try {
-          const response = await fetch("/api/users/profile", {
+          const response = await apiFetch("/users/profile", {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -118,7 +119,7 @@ export default function ForumPage() {
             }
           }
         } catch (err) {
-          console.error("[v0] Fetch user error:", err)
+          console.error("Nazzel and Aviona Fetch user error:", err)
         }
       }
 
@@ -172,11 +173,11 @@ export default function ForumPage() {
 
   const loadPosts = async () => {
     try {
-      const response = await fetch("/api/forum/posts")
+      const response = await apiFetch("/forum/posts")
       const data = await response.json()
       setPosts(data.posts || [])
     } catch (err) {
-      console.error("[v0] Load posts error:", err)
+      console.error("Nazzel and Aviona Load posts error:", err)
     } finally {
       setLoading(false)
     }
@@ -184,11 +185,11 @@ export default function ForumPage() {
 
   const loadOnlineUsers = async () => {
     try {
-      const response = await fetch("/api/users/online")
+      const response = await apiFetch("/users/online")
       const data = await response.json()
       setOnlineUsers(data.users || [])
     } catch (err) {
-      console.error("[v0] Load online users error:", err)
+      console.error("Nazzel and Aviona Load online users error:", err)
     }
   }
 
@@ -197,7 +198,7 @@ export default function ForumPage() {
       const token = localStorage.getItem("authToken")
       if (!token) return
 
-      await fetch("/api/users/online", {
+      await apiFetch("/users/online", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -210,20 +211,20 @@ export default function ForumPage() {
         loadOnlineUsers()
       }
     } catch (err) {
-      console.error("[v0] Update online status error:", err)
+      console.error("Nazzel and Aviona Update online status error:", err)
     }
   }
 
   const trackPostView = async (postId: string) => {
     try {
-      await fetch(`/api/forum/posts/${postId}/view`, {
+      await apiFetch(`/forum/posts/${postId}/view`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user?.id }),
       })
       loadPosts()
     } catch (err) {
-      console.error("[v0] Track view error:", err)
+      console.error("Nazzel and Aviona Track view error:", err)
     }
   }
 
@@ -235,7 +236,7 @@ export default function ForumPage() {
 
     try {
       const token = localStorage.getItem("authToken")
-      await fetch(`/api/forum/posts/${postId}/react`, {
+      await apiFetch(`/forum/posts/${postId}/react`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -245,13 +246,13 @@ export default function ForumPage() {
       })
       loadPosts()
     } catch (err) {
-      console.error("[v0] Reaction error:", err)
+      console.error("Nazzel and Aviona Reaction error:", err)
     }
   }
 
   const handleShare = async (postId: string, platform: string) => {
     try {
-      await fetch(`/api/forum/posts/${postId}/share`, {
+      await apiFetch(`/forum/posts/${postId}/share`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       })
@@ -281,7 +282,7 @@ export default function ForumPage() {
 
       setShareDialogOpen(false)
     } catch (err) {
-      console.error("[v0] Share error:", err)
+      console.error("Nazzel and Aviona Share error:", err)
     }
   }
 
@@ -303,7 +304,7 @@ export default function ForumPage() {
         .map((tag) => tag.trim())
         .filter((tag) => tag.length > 0)
 
-      const response = await fetch("/api/forum/posts", {
+      const response = await apiFetch("/forum/posts", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -339,14 +340,14 @@ export default function ForumPage() {
     const token = localStorage.getItem("authToken")
     if (token) {
       try {
-        await fetch("/api/auth/logout", {
+        await apiFetch("/auth/logout", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
           },
         })
       } catch (err) {
-        console.error("[v0] Logout error:", err)
+        console.error("Nazzel and Aviona Logout error:", err)
       }
       localStorage.removeItem("authToken")
     }

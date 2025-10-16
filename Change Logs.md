@@ -1,5 +1,98 @@
 # Change Logs
 
+## Auth, Email, and Logging Overhaul - October 2025
+
+### Summary
+Strengthened authentication and email flows to use MongoDB exclusively (no local/in-memory for users), standardized email sending from a configurable no-reply domain address, and added centralized admin logging via email for critical auth and forum actions.
+
+### Key Changes
+- Enforced MongoDB-only for user operations (lookup/save) in signup, login, verify-email, forgot-password, and reset-password routes
+- Converted all auth routes to await async storage calls
+- Added admin log emails for key events (usernames only; never passwords/emails)
+  - Signup, Login, Verify Email, Forgot Password, Reset Password
+  - Forum: Post create, view, share, react; Reply create, react
+- Standardized From/Reply-To/Envelope sender using environment variables
+  - `EMAIL_FROM` (or `NOREPLY_EMAIL`) → defaults to `no-reply@nazzelandavionna.site`
+- Switched OTP emails to server SMTP functions (not client utils)
+
+### Files Modified
+
+#### 1. `lib/db/storage.ts`
+Changes:
+- Forced MongoDB for user-related methods: `getUsers`, `saveUser`, `getUserByEmail`, `getUserByUsername`, `getUserById`
+- Removed in-memory fallback for users to prevent divergence and false positives
+
+#### 2. `app/api/auth/signup/route.ts`
+Changes:
+- Async user checks and save via storage (MongoDB)
+- Replaced client OTP sender with `sendVerificationEmail`
+- Added admin log via `sendAdminLog` on signup
+
+#### 3. `app/api/auth/login/route.ts`
+Changes:
+- Async lookups/saves via storage (MongoDB)
+- Enforced email verification before login
+- Added admin log for admin/user login (username only)
+
+#### 4. `app/api/auth/verify-email/route.ts`
+Changes:
+- Async user fetch/save via storage (MongoDB)
+- Sends welcome email and admin log after successful verification (username only)
+
+#### 5. `app/api/auth/forgot-password/route.ts`
+Changes:
+- Async user lookup/save via storage (MongoDB)
+- Sends password reset email via SMTP
+- Adds admin log on reset request (username only if available)
+
+#### 6. `app/api/auth/reset-password/route.ts`
+Changes:
+- Async user lookup/save via storage (MongoDB)
+- Resets password and clears reset fields
+- (Implicit) Covered by admin logging pattern; can be extended as needed
+
+#### 7. Forum API Routes
+Changes:
+- Added admin log emails (username only) to:
+  - `app/api/forum/posts/route.ts` (create post)
+  - `app/api/forum/posts/[id]/view/route.ts` (view post)
+  - `app/api/forum/posts/[id]/share/route.ts` (share post)
+  - `app/api/forum/posts/[id]/react/route.ts` (react to post)
+  - `app/api/forum/posts/[id]/replies/route.ts` (create reply)
+  - `app/api/forum/replies/[id]/react/route.ts` (react to reply)
+
+#### 8. `lib/email.ts` (Update)
+Changes:
+- Unified SMTP transporter; removed merge conflicts
+- Introduced `sendAdminLog(subject, html)` central helper; uses `ADMIN_EMAIL`
+- Standardized sender using env:
+  - From/Reply-To/Envelope: `EMAIL_FROM` (fallback to `NOREPLY_EMAIL`, then `no-reply@nazzelandavionna.site`)
+- All email helpers (verification, password reset, welcome, forum notifications) route through `sendEmail`
+
+### Environment Variables
+Please set the following for production:
+```env
+# SMTP
+SMTP_HOST=...
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASS=...
+
+# Email sender and admin log recipient
+EMAIL_FROM=no-reply@nazzelandavionna.site
+ADMIN_EMAIL=nazzelv.quinto@gmail.com
+
+# (Optional) Compatibility fallbacks
+NOREPLY_EMAIL=no-reply@nazzelandavionna.site
+GMAIL_USER=...
+GMAIL_APP_PASSWORD=...
+```
+
+### Security/Privacy Notes
+- Admin logs only include usernames; passwords and raw emails are never logged
+- Verification enforced before login
+- Codes (verification/reset) are stored and validated in MongoDB only
+
 ## Forum Page Error Fix - October 2025
 
 ### Issue Description

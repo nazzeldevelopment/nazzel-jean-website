@@ -277,11 +277,12 @@ export const emailTemplates = {
     `,
   }),
 }
+const DEFAULT_FROM_EMAIL = process.env.EMAIL_FROM || process.env.NOREPLY_EMAIL || "no-reply@nazzelandavionna.site"
 export async function sendEmail({
   to,
   subject,
   html,
-  from = `"Nazzel & Avionna" <${process.env.SMTP_USER || "donotreply@nazzelandavionna.site"}>`,
+  from = `"Nazzel & Avionna" <${DEFAULT_FROM_EMAIL}>`,
 }: {
   to: string
   subject: string
@@ -293,6 +294,11 @@ export async function sendEmail({
     to,
     subject,
     html,
+    envelope: {
+      from: DEFAULT_FROM_EMAIL,
+      to,
+    },
+    replyTo: DEFAULT_FROM_EMAIL,
   })
   return { success: true, messageId: info.messageId }
 }
