@@ -14,7 +14,7 @@ let client: MongoClient | null = null;
 let db: Db | null = null;
 
 /**
- * MongoDB Connection Manager (Render + Local safe)
+ * MongoDB Singleton Connection
  */
 class MongoDBConnection {
   private static instance: MongoDBConnection;
@@ -37,14 +37,22 @@ class MongoDBConnection {
 
     try {
       if (!client) {
-        client = new MongoClient(uri);
+        client = new MongoClient(uri, {
+          // optional para mas stable sa serverless / Next.js
+          maxPoolSize: 10,
+          serverSelectionTimeoutMS: 5000,
+        });
+      }
+
+      // Connect lang kung hindi pa connected
+      if (!this.isConnected) {
         await client.connect();
+        this.isConnected = true;
+        console.log("✅ MongoDB connected successfully");
       }
 
       db = client.db("nazzelandavionnadb");
-      this.isConnected = true;
 
-      console.log("✅ MongoDB connected successfully");
       await this.ensureCollectionsExist();
       await this.createIndexes();
 
@@ -84,39 +92,32 @@ class MongoDBConnection {
     if (!db) return;
 
     try {
-      // Users
       const users = db.collection("users");
       await users.createIndex({ email: 1 }, { unique: true });
       await users.createIndex({ username: 1 }, { unique: true });
       await users.createIndex({ createdAt: -1 });
       await users.createIndex({ isOnline: 1 });
 
-      // Sessions
       const sessions = db.collection("sessions");
       await sessions.createIndex({ token: 1 }, { unique: true });
       await sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-      // Forum posts
       const posts = db.collection("forumPosts");
       await posts.createIndex({ userId: 1 });
       await posts.createIndex({ category: 1 });
       await posts.createIndex({ createdAt: -1 });
 
-      // Forum replies
       const replies = db.collection("forumReplies");
       await replies.createIndex({ postId: 1 });
       await replies.createIndex({ createdAt: 1 });
 
-      // Private messages
       const msgs = db.collection("privateMessages");
       await msgs.createIndex({ senderId: 1, receiverId: 1 });
       await msgs.createIndex({ createdAt: -1 });
 
-      // Typing statuses
       const typings = db.collection("typingStatuses");
       await typings.createIndex({ userId: 1 }, { unique: true });
 
-      // Gallery albums
       const albums = db.collection("galleryAlbums");
       await albums.createIndex({ createdBy: 1 });
       await albums.createIndex({ createdAt: -1 });
@@ -127,6 +128,7 @@ class MongoDBConnection {
     }
   }
 
+  // Huwag agad isara, gamitin lang sa app lifecycle
   async disconnect(): Promise<void> {
     if (client) {
       await client.close();
