@@ -242,7 +242,7 @@ export default function MessagesPage() {
           <Lock className="h-4 w-4" />
           <AlertDescription>
             Please{" "}
-            <Link href="/login" className="text-primary hover:underline font-semibold">
+            <Link href="/login/account" className="text-primary hover:underline font-semibold">
               log in
             </Link>{" "}
             to access messages.

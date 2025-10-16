@@ -248,7 +248,7 @@ function ResetPasswordContent() {
 
               <p className="text-center text-sm text-muted-foreground">
                 Remember your password?{" "}
-                <Link href="/login" className="text-primary font-semibold hover:underline">
+                <Link href="/login/account" className="text-primary font-semibold hover:underline">
                   Login here
                 </Link>
               </p>

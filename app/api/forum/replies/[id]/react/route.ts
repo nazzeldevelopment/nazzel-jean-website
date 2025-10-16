@@ -12,12 +12,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const session = storage.getSessionByToken(token)
+    const session = await storage.getSessionByToken(token)
     if (!session) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 })
     }
 
-    const user = storage.getUserById(session.userId)
+    const user = await storage.getUserById(session.userId)
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
@@ -29,7 +29,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return NextResponse.json({ error: "Emoji is required" }, { status: 400 })
     }
 
-    const reply = storage.getReplyById(id)
+    const reply = await storage.getReplyById(id)
     if (!reply) {
       return NextResponse.json({ error: "Reply not found" }, { status: 404 })
     }
@@ -51,7 +51,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       reply.reactions.push(reaction)
     }
 
-    storage.saveReply(reply)
+    await storage.saveReply(reply)
 
     return NextResponse.json({ success: true, reactions: reply.reactions })
   } catch (error) {

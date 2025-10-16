@@ -7,7 +7,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const body = await request.json()
     const { userId } = body
 
-    const post = storage.getPostById(id)
+    const post = await storage.getPostById(id)
     if (!post) {
       return NextResponse.json({ error: "Post not found" }, { status: 404 })
     }
@@ -20,7 +20,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       post.seenBy.push(userId)
     }
 
-    storage.savePost(post)
+    await storage.savePost(post)
 
     return NextResponse.json({ success: true, views: post.views, seenCount: post.seenBy.length })
   } catch (error) {

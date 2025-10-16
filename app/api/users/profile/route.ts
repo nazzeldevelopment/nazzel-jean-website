@@ -5,12 +5,27 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get("userId")
+    
+    // Check if this is an authenticated request (for current user profile)
+    const authHeader = request.headers.get("authorization")
+    const token = authHeader?.replace("Bearer ", "")
 
-    if (!userId) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+    let user
+
+    if (token) {
+      // Authenticated request - get current user profile
+      const session = await storage.getSessionByToken(token)
+      if (!session) {
+        return NextResponse.json({ error: "Invalid session" }, { status: 401 })
+      }
+      user = await storage.getUserById(session.userId)
+    } else if (userId) {
+      // Public request - get specific user profile
+      user = await storage.getUserById(userId)
+    } else {
+      return NextResponse.json({ error: "User ID is required for public profiles" }, { status: 400 })
     }
 
-    const user = storage.getUserById(userId)
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
@@ -45,12 +60,12 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const session = storage.getSessionByToken(token)
+    const session = await storage.getSessionByToken(token)
     if (!session) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 })
     }
 
-    const user = storage.getUserById(session.userId)
+    const user = await storage.getUserById(session.userId)
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
@@ -62,7 +77,7 @@ export async function PUT(request: Request) {
     if (bio !== undefined) user.bio = bio
     if (relationshipStatus !== undefined) user.relationshipStatus = relationshipStatus
 
-    storage.saveUser(user)
+    await storage.saveUser(user)
 
     return NextResponse.json({ success: true, user })
   } catch (error) {

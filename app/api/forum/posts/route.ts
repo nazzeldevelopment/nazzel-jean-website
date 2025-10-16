@@ -4,7 +4,7 @@ import { storage } from "@/lib/db/storage"
 
 export async function GET() {
   try {
-    const posts = storage.getPosts()
+    const posts = await storage.getPosts()
     return NextResponse.json({ posts })
   } catch (error) {
     console.error("[v0] Get posts error:", error)
@@ -21,12 +21,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const session = storage.getSessionByToken(token)
+    const session = await storage.getSessionByToken(token)
     if (!session) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 })
     }
 
-    const user = storage.getUserById(session.userId)
+    const user = await storage.getUserById(session.userId)
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
@@ -57,10 +57,10 @@ export async function POST(request: Request) {
       updatedAt: new Date(),
     }
 
-    storage.savePost(post)
+    await storage.savePost(post)
 
     user.postCount = (user.postCount || 0) + 1
-    storage.saveUser(user)
+    await storage.saveUser(user)
 
     return NextResponse.json({ success: true, post })
   } catch (error) {

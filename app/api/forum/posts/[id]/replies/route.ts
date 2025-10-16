@@ -4,7 +4,7 @@ import { storage } from "@/lib/db/storage"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const replies = storage.getReplies(params.id)
+    const replies = await storage.getReplies(params.id)
     return NextResponse.json({ replies })
   } catch (error) {
     console.error("[v0] Get replies error:", error)
@@ -21,12 +21,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const session = storage.getSessionByToken(token)
+    const session = await storage.getSessionByToken(token)
     if (!session) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 })
     }
 
-    const user = storage.getUserById(session.userId)
+    const user = await storage.getUserById(session.userId)
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
@@ -45,18 +45,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
       username: user.username,
       content,
       likes: 0,
+      reactions: [],
       createdAt: new Date(),
       updatedAt: new Date(),
     }
 
-    storage.saveReply(reply)
+    await storage.saveReply(reply)
 
     // Update post reply count
-    const post = storage.getPostById(params.id)
+    const post = await storage.getPostById(params.id)
     if (post) {
       post.replies += 1
       post.updatedAt = new Date()
-      storage.savePost(post)
+      await storage.savePost(post)
     }
 
     return NextResponse.json({ success: true, reply })

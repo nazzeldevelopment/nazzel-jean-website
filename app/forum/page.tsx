@@ -445,7 +445,7 @@ export default function ForumPage() {
                 <Lock className="h-4 w-4" />
                 <AlertDescription className="font-medium">
                   You can view discussions, but you need to{" "}
-                  <Link href="/signup/account" className="text-primary hover:underline font-bold">
+                  <Link href="/account/signup" className="text-primary hover:underline font-bold">
                     sign up
                   </Link>{" "}
                   and become a member to post and participate.

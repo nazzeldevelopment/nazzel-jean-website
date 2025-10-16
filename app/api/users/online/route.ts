@@ -3,7 +3,7 @@ import { storage } from "@/lib/db/storage"
 
 export async function GET() {
   try {
-    const onlineUsers = storage.getOnlineUsers()
+    const onlineUsers = await storage.getOnlineUsers()
     return NextResponse.json({ users: onlineUsers })
   } catch (error) {
     console.error("[v0] Get online users error:", error)
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const session = storage.getSessionByToken(token)
+    const session = await storage.getSessionByToken(token)
     if (!session) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 })
     }
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { isOnline } = body
 
-    storage.updateUserOnlineStatus(session.userId, isOnline)
+    await storage.updateUserOnlineStatus(session.userId, isOnline)
 
     return NextResponse.json({ success: true })
   } catch (error) {

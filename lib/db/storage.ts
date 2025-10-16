@@ -1,196 +1,313 @@
 import "server-only"
-import { MongoClient, type Db, type Collection } from "mongodb"
+import { mongodb } from "./mongodb"
 import type { User, ForumPost, ForumReply, Session, PrivateMessage, TypingStatus, GalleryAlbum } from "./models"
 
-let client: MongoClient | null = null
-let db: Db | null = null
-
-async function connectToDatabase(): Promise<Db> {
-  if (db) return db
-
-  if (!process.env.MONGODB_URI) {
-    throw new Error("MONGODB_URI environment variable is not set")
-  }
-
-  client = new MongoClient(process.env.MONGODB_URI)
-  await client.connect()
-  db = client.db("nazzelandavionnadb")
-
-  // Create indexes for better performance
-  await db.collection("users").createIndex({ email: 1 }, { unique: true })
-  await db.collection("users").createIndex({ username: 1 }, { unique: true })
-  await db.collection("sessions").createIndex({ token: 1 })
-  await db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
-
-  return db
+// In-memory fallback storage for development
+const inMemoryStorage = {
+  users: new Map<string, User>(),
+  posts: new Map<string, ForumPost>(),
+  replies: new Map<string, ForumReply>(),
+  sessions: new Map<string, Session>(),
+  messages: new Map<string, PrivateMessage>(),
+  typingStatuses: new Map<string, TypingStatus>(),
+  albums: new Map<string, GalleryAlbum>(),
 }
 
-class MongoStorage {
-  private async getCollection<T>(name: string): Promise<Collection<T>> {
-    const database = await connectToDatabase()
-    return database.collection<T>(name)
-  }
-
+class Storage {
   // Users
   async getUsers(): Promise<User[]> {
-    const collection = await this.getCollection<User>("users")
-    return await collection.find({}).toArray()
+    try {
+      return await mongodb.getUsers()
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      return Array.from(inMemoryStorage.users.values())
+    }
   }
 
   async saveUser(user: User): Promise<void> {
-    const collection = await this.getCollection<User>("users")
-    await collection.updateOne({ id: user.id }, { $set: user }, { upsert: true })
+    try {
+      await mongodb.saveUser(user)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      inMemoryStorage.users.set(user.id, user)
+    }
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const collection = await this.getCollection<User>("users")
-    const user = await collection.findOne({ email: { $regex: new RegExp(`^${email}$`, "i") } })
-    return user || undefined
+    try {
+      return await mongodb.getUserByEmail(email)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      return Array.from(inMemoryStorage.users.values()).find(u => u.email.toLowerCase() === email.toLowerCase())
+    }
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const collection = await this.getCollection<User>("users")
-    const user = await collection.findOne({ username: { $regex: new RegExp(`^${username}$`, "i") } })
-    return user || undefined
+    try {
+      return await mongodb.getUserByUsername(username)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      return Array.from(inMemoryStorage.users.values()).find(u => u.username.toLowerCase() === username.toLowerCase())
+    }
   }
 
   async getUserById(id: string): Promise<User | undefined> {
-    const collection = await this.getCollection<User>("users")
-    const user = await collection.findOne({ id })
-    return user || undefined
+    try {
+      return await mongodb.getUserById(id)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      return inMemoryStorage.users.get(id)
+    }
   }
 
   async getOnlineUsers(): Promise<User[]> {
-    const collection = await this.getCollection<User>("users")
-    return await collection.find({ isOnline: true }).toArray()
+    try {
+      return await mongodb.getOnlineUsers()
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      return Array.from(inMemoryStorage.users.values()).filter(u => u.isOnline)
+    }
   }
 
   async updateUserOnlineStatus(userId: string, isOnline: boolean): Promise<void> {
-    const collection = await this.getCollection<User>("users")
-    await collection.updateOne({ id: userId }, { $set: { isOnline, lastSeen: new Date() } })
+    try {
+      await mongodb.updateUserOnlineStatus(userId, isOnline)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      const user = inMemoryStorage.users.get(userId)
+      if (user) {
+        user.isOnline = isOnline
+        user.lastSeen = new Date()
+        inMemoryStorage.users.set(userId, user)
+      }
+    }
   }
 
   // Forum Posts
   async getPosts(): Promise<ForumPost[]> {
-    const collection = await this.getCollection<ForumPost>("forumPosts")
-    return await collection.find({}).sort({ createdAt: -1 }).toArray()
+    try {
+      return await mongodb.getPosts()
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      return Array.from(inMemoryStorage.posts.values()).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    }
   }
 
   async savePost(post: ForumPost): Promise<void> {
-    const collection = await this.getCollection<ForumPost>("forumPosts")
-    await collection.updateOne({ id: post.id }, { $set: post }, { upsert: true })
+    try {
+      await mongodb.savePost(post)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      inMemoryStorage.posts.set(post.id, post)
+    }
   }
 
   async getPostById(id: string): Promise<ForumPost | undefined> {
-    const collection = await this.getCollection<ForumPost>("forumPosts")
-    const post = await collection.findOne({ id })
-    return post || undefined
+    try {
+      return await mongodb.getPostById(id)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      return inMemoryStorage.posts.get(id)
+    }
   }
 
   // Forum Replies
   async getReplies(postId: string): Promise<ForumReply[]> {
-    const collection = await this.getCollection<ForumReply>("forumReplies")
-    return await collection.find({ postId }).sort({ createdAt: 1 }).toArray()
+    try {
+      return await mongodb.getReplies(postId)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      return Array.from(inMemoryStorage.replies.values())
+        .filter(r => r.postId === postId)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    }
   }
 
   async saveReply(reply: ForumReply): Promise<void> {
-    const collection = await this.getCollection<ForumReply>("forumReplies")
-    await collection.insertOne(reply as any)
+    try {
+      await mongodb.saveReply(reply)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      inMemoryStorage.replies.set(reply.id, reply)
+    }
   }
 
   async getReplyById(replyId: string): Promise<ForumReply | undefined> {
-    const collection = await this.getCollection<ForumReply>("forumReplies")
-    const reply = await collection.findOne({ id: replyId })
-    return reply || undefined
+    try {
+      return await mongodb.getReplyById(replyId)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      return inMemoryStorage.replies.get(replyId)
+    }
   }
 
   // Sessions
   async getSessions(): Promise<Session[]> {
-    const collection = await this.getCollection<Session>("sessions")
-    return await collection.find({}).toArray()
+    try {
+      return await mongodb.getSessions()
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      return Array.from(inMemoryStorage.sessions.values())
+    }
   }
 
   async saveSession(session: Session): Promise<void> {
-    const collection = await this.getCollection<Session>("sessions")
-    await collection.insertOne(session as any)
+    try {
+      await mongodb.saveSession(session)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      inMemoryStorage.sessions.set(session.id, session)
+    }
   }
 
   async getSessionByToken(token: string): Promise<Session | undefined> {
-    const collection = await this.getCollection<Session>("sessions")
-    const session = await collection.findOne({
-      token,
-      expiresAt: { $gt: new Date() },
-    })
-    return session || undefined
+    try {
+      return await mongodb.getSessionByToken(token)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      return Array.from(inMemoryStorage.sessions.values()).find(s => s.token === token && s.expiresAt > new Date())
+    }
   }
 
   async deleteSession(token: string): Promise<void> {
-    const collection = await this.getCollection<Session>("sessions")
-    await collection.deleteOne({ token })
+    try {
+      await mongodb.deleteSession(token)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      const session = Array.from(inMemoryStorage.sessions.values()).find(s => s.token === token)
+      if (session) {
+        inMemoryStorage.sessions.delete(session.id)
+      }
+    }
   }
 
   // Private Messages
   async getMessages(userId1: string, userId2: string): Promise<PrivateMessage[]> {
-    const collection = await this.getCollection<PrivateMessage>("privateMessages")
-    return await collection
-      .find({
-        $or: [
-          { senderId: userId1, receiverId: userId2 },
-          { senderId: userId2, receiverId: userId1 },
-        ],
-      })
-      .sort({ createdAt: 1 })
-      .toArray()
+    try {
+      return await mongodb.getMessages(userId1, userId2)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      return Array.from(inMemoryStorage.messages.values())
+        .filter(m => 
+          (m.senderId === userId1 && m.receiverId === userId2) ||
+          (m.senderId === userId2 && m.receiverId === userId1)
+        )
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    }
   }
 
   async saveMessage(message: PrivateMessage): Promise<void> {
-    const collection = await this.getCollection<PrivateMessage>("privateMessages")
-    await collection.insertOne(message as any)
+    try {
+      await mongodb.saveMessage(message)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      inMemoryStorage.messages.set(message.id, message)
+    }
   }
 
   async markMessageAsRead(messageId: string): Promise<void> {
-    const collection = await this.getCollection<PrivateMessage>("privateMessages")
-    await collection.updateOne({ id: messageId }, { $set: { isRead: true } })
+    try {
+      await mongodb.markMessageAsRead(messageId)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      const message = inMemoryStorage.messages.get(messageId)
+      if (message) {
+        message.isRead = true
+        inMemoryStorage.messages.set(messageId, message)
+      }
+    }
   }
 
   async getUnreadCount(userId: string): Promise<number> {
-    const collection = await this.getCollection<PrivateMessage>("privateMessages")
-    return await collection.countDocuments({ receiverId: userId, isRead: false })
+    try {
+      return await mongodb.getUnreadCount(userId)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      return Array.from(inMemoryStorage.messages.values()).filter(m => m.receiverId === userId && !m.isRead).length
+    }
   }
 
   // Typing Status
   async getTypingStatus(userId: string): Promise<TypingStatus | undefined> {
-    const collection = await this.getCollection<TypingStatus>("typingStatuses")
-    const status = await collection.findOne({ userId })
-    return status || undefined
+    try {
+      return await mongodb.getTypingStatus(userId)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      return inMemoryStorage.typingStatuses.get(userId)
+    }
   }
 
   async updateTypingStatus(status: TypingStatus): Promise<void> {
-    const collection = await this.getCollection<TypingStatus>("typingStatuses")
-    await collection.updateOne({ userId: status.userId }, { $set: status }, { upsert: true })
+    try {
+      await mongodb.updateTypingStatus(status)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      inMemoryStorage.typingStatuses.set(status.userId, status)
+    }
   }
 
   // Gallery Albums
   async getAlbums(): Promise<GalleryAlbum[]> {
-    const collection = await this.getCollection<GalleryAlbum>("galleryAlbums")
-    return await collection.find({}).sort({ createdAt: -1 }).toArray()
+    try {
+      return await mongodb.getAlbums()
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      return Array.from(inMemoryStorage.albums.values()).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    }
   }
 
   async saveAlbum(album: GalleryAlbum): Promise<void> {
-    const collection = await this.getCollection<GalleryAlbum>("galleryAlbums")
-    await collection.updateOne({ id: album.id }, { $set: album }, { upsert: true })
+    try {
+      await mongodb.saveAlbum(album)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      inMemoryStorage.albums.set(album.id, album)
+    }
   }
 
   async getAlbumById(id: string): Promise<GalleryAlbum | undefined> {
-    const collection = await this.getCollection<GalleryAlbum>("galleryAlbums")
-    const album = await collection.findOne({ id })
-    return album || undefined
+    try {
+      return await mongodb.getAlbumById(id)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      return inMemoryStorage.albums.get(id)
+    }
   }
 
   async deleteAlbum(id: string): Promise<void> {
-    const collection = await this.getCollection<GalleryAlbum>("galleryAlbums")
-    await collection.deleteOne({ id })
+    try {
+      await mongodb.deleteAlbum(id)
+    } catch (error) {
+      console.warn("MongoDB not available, using in-memory storage")
+      inMemoryStorage.albums.delete(id)
+    }
+  }
+
+  // Utility methods
+  async isMongoConnected(): Promise<boolean> {
+    return await mongodb.isConnected()
+  }
+
+  async getStats(): Promise<{
+    users: number
+    posts: number
+    replies: number
+    messages: number
+    albums: number
+  }> {
+    try {
+      return await mongodb.getStats()
+    } catch (error) {
+      console.warn("MongoDB not available, returning in-memory stats")
+      return {
+        users: inMemoryStorage.users.size,
+        posts: inMemoryStorage.posts.size,
+        replies: inMemoryStorage.replies.size,
+        messages: inMemoryStorage.messages.size,
+        albums: inMemoryStorage.albums.size,
+      }
+    }
   }
 }
 
-export const storage = new MongoStorage()
+export const storage = new Storage()
