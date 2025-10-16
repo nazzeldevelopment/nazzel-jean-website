@@ -1,7 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Playfair_Display, Inter } from "next/font/google"
-import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
 import "./globals.css"
 import { Footer } from "@/components/footer"
@@ -48,9 +47,7 @@ export default function RootLayout({
           <CookieConsent />
           <ThemeCustomizer />
         </div>
-        {(globalThis.process?.env?.VERCEL_ANALYTICS_ID || globalThis.process?.env?.NEXT_PUBLIC_VERCEL_ANALYTICS_ID)
-          ? <Analytics />
-          : null}
+        {/* Analytics removed for host-agnostic deployment */}
       </body>
     </html>
   )
