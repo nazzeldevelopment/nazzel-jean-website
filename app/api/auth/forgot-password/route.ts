@@ -1,5 +1,6 @@
+// path: /app/api/auth/forgot-password/route.ts
 import { NextResponse } from "next/server"
-import { storage } from "@/lib/db/storage"
+import { storage } from "@/lib/db/storage" // your DB helper
 import { generateOTP } from "@/lib/auth/client-utils"
 import { sendPasswordResetEmail, sendAdminLog } from "@/lib/email"
 
@@ -8,6 +9,7 @@ export async function POST(request: Request) {
     if (!process.env.MONGODB_URI) {
       return NextResponse.json({ error: "Database not configured" }, { status: 503 })
     }
+
     const body = await request.json()
     const { email } = body
 
@@ -19,12 +21,13 @@ export async function POST(request: Request) {
     try {
       user = await storage.getUserByEmail(email)
     } catch (e) {
-      // Treat DB unavailability as success to avoid user enumeration and 500s
+      // Treat DB unavailability as success to avoid user enumeration
       return NextResponse.json({
         success: true,
         message: "If the email exists, a reset code has been sent.",
       })
     }
+
     if (!user) {
       // Don't reveal if email exists
       return NextResponse.json({
@@ -40,17 +43,18 @@ export async function POST(request: Request) {
     user.resetPasswordCode = resetCode
     user.resetPasswordCodeExpiry = resetCodeExpiry
     user.updatedAt = new Date()
+
     try {
       await storage.saveUser(user)
     } catch (e) {
-      // Still respond success (don't leak infra errors)
+      // still respond success
       return NextResponse.json({
         success: true,
         message: "If the email exists, a reset code has been sent.",
       })
     }
 
-    // Send reset email via SMTP (do not fail the request if email send fails)
+    // Send reset email
     try {
       await sendPasswordResetEmail(email, user.username, resetCode)
     } catch (e) {
@@ -58,17 +62,21 @@ export async function POST(request: Request) {
     }
 
     // Admin log
-    await sendAdminLog(
-      "Password reset requested",
-      `<p>Reset requested for <strong>${email}</strong>.</p>`
-    )
+    try {
+      await sendAdminLog(
+        "Password reset requested",
+        `<p>Reset requested for <strong>${email}</strong>.</p>`
+      )
+    } catch (e) {
+      console.warn("Admin log failed:", e)
+    }
 
     return NextResponse.json({
       success: true,
       message: "If the email exists, a reset code has been sent.",
     })
   } catch (error) {
-    console.error("Nazzel and Aviona Forgot password error:", error)
+    console.error("Forgot password error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
