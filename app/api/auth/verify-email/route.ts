@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       message: "Email verified successfully! You can now login.",
     })
   } catch (error) {
-    console.error("[v0] Verify email error:", error)
+    console.error("Nazzel and Aviona Verify email error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

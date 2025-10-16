@@ -62,7 +62,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
     return NextResponse.json({ success: true, reactions: post.reactions })
   } catch (error) {
-    console.error("[v0] React to post error:", error)
+    console.error("Nazzel and Aviona React to post error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
