@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react"
 import { checkPasswordStrength } from "@/lib/auth/client-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { apiFetch } from "@/lib/utils"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -89,7 +90,7 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
-      const response = await fetch("/api/auth/signup", {
+      const response = await apiFetch("/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
