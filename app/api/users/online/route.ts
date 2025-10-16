@@ -3,6 +3,9 @@ import { storage } from "@/lib/db/storage"
 
 export async function GET() {
   try {
+    if (!process.env.MONGODB_URI) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 })
+    }
     const onlineUsers = await storage.getOnlineUsers()
     return NextResponse.json({ users: onlineUsers })
   } catch (error) {
@@ -13,6 +16,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    if (!process.env.MONGODB_URI) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 })
+    }
     const authHeader = request.headers.get("authorization")
     const token = authHeader?.replace("Bearer ", "")
 

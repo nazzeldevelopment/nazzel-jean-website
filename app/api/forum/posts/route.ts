@@ -5,6 +5,9 @@ import { sendAdminLog } from "@/lib/email"
 
 export async function GET() {
   try {
+    if (!process.env.MONGODB_URI) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 })
+    }
     const posts = await storage.getPosts()
     return NextResponse.json({ posts })
   } catch (error) {
@@ -15,6 +18,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    if (!process.env.MONGODB_URI) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 })
+    }
     const authHeader = request.headers.get("authorization")
     const token = authHeader?.replace("Bearer ", "")
 
@@ -64,10 +70,12 @@ export async function POST(request: Request) {
     await storage.saveUser(user)
 
     // Admin log
-    await sendAdminLog(
-      "Forum post created",
-      `<p>User <strong>${user.username}</strong> created a post titled "${title}".</p>`
-    )
+    try {
+      await sendAdminLog(
+        "Forum post created",
+        `<p>User <strong>${user.username}</strong> created a post titled "${title}".</p>`
+      )
+    } catch (_) {}
 
     return NextResponse.json({ success: true, post })
   } catch (error) {

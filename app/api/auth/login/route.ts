@@ -11,6 +11,9 @@ const LOCK_DURATION = 300000 // 5 minutes in milliseconds
 
 export async function POST(request: Request) {
   try {
+    if (!process.env.MONGODB_URI) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 })
+    }
     const body = await request.json()
     const { usernameOrEmail, password } = body
 
@@ -21,9 +24,14 @@ export async function POST(request: Request) {
     // Note: No admin bypass. Only regular credential checks below.
 
     // Find user by email or username
-    let user = await storage.getUserByEmail(usernameOrEmail)
-    if (!user) {
-      user = await storage.getUserByUsername(usernameOrEmail)
+    let user = undefined
+    try {
+      user = await storage.getUserByEmail(usernameOrEmail)
+      if (!user) {
+        user = await storage.getUserByUsername(usernameOrEmail)
+      }
+    } catch (e) {
+      return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
     }
 
     if (!user) {
@@ -59,7 +67,11 @@ export async function POST(request: Request) {
     // Reset failed attempts
     user.failedLoginAttempts = 0
     user.accountLockedUntil = undefined
-    await storage.saveUser(user)
+    try {
+      await storage.saveUser(user)
+    } catch (e) {
+      return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+    }
 
     // Create session
     const token = generateToken()
@@ -70,7 +82,11 @@ export async function POST(request: Request) {
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       createdAt: new Date(),
     }
-    await storage.saveSession(session)
+    try {
+      await storage.saveSession(session)
+    } catch (e) {
+      return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+    }
 
     const response = NextResponse.json({
       success: true,

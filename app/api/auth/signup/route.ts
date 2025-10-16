@@ -6,6 +6,9 @@ import { sendVerificationEmail, sendAdminLog } from "@/lib/email"
 
 export async function POST(request: Request) {
   try {
+    if (!process.env.MONGODB_URI) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 })
+    }
     const body = await request.json()
     const { username, email, password, dateOfBirth, relationshipStatus, agreedToTerms } = body
 
@@ -21,12 +24,20 @@ export async function POST(request: Request) {
     }
 
     // Check if user exists
-    if (await storage.getUserByEmail(email)) {
-      return NextResponse.json({ error: "Email already registered" }, { status: 400 })
+    try {
+      if (await storage.getUserByEmail(email)) {
+        return NextResponse.json({ error: "Email already registered" }, { status: 400 })
+      }
+    } catch (_) {
+      return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
     }
 
-    if (await storage.getUserByUsername(username)) {
-      return NextResponse.json({ error: "Username already taken" }, { status: 400 })
+    try {
+      if (await storage.getUserByUsername(username)) {
+        return NextResponse.json({ error: "Username already taken" }, { status: 400 })
+      }
+    } catch (_) {
+      return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
     }
 
     // Generate verification code
@@ -53,16 +64,26 @@ export async function POST(request: Request) {
       updatedAt: new Date(),
     }
 
-    await storage.saveUser(user)
+    try {
+      await storage.saveUser(user)
+    } catch (_) {
+      return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+    }
 
     // Send verification email via SMTP
-    await sendVerificationEmail(email, username, verificationCode)
+    try {
+      await sendVerificationEmail(email, username, verificationCode)
+    } catch (e) {
+      console.warn("Signup verification email failed:", e)
+    }
 
     // Admin log
-    await sendAdminLog(
-      "New signup",
-      `<p>User <strong>${username}</strong> signed up with <strong>${email}</strong>.</p>`
-    )
+    try {
+      await sendAdminLog(
+        "New signup",
+        `<p>User <strong>${username}</strong> signed up with <strong>${email}</strong>.</p>`
+      )
+    } catch (_) {}
 
     console.log(`[v0] Sending member role notification to ${email}`)
     console.log(`[v0] Welcome ${username}! You have been granted MEMBER role access.`)

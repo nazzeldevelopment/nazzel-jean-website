@@ -4,6 +4,9 @@ import { sendWelcomeEmail, sendAdminLog } from "@/lib/email"
 
 export async function POST(request: Request) {
   try {
+    if (!process.env.MONGODB_URI) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 })
+    }
     const body = await request.json()
     const { userId, code } = body
 
@@ -11,7 +14,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User ID and code are required" }, { status: 400 })
     }
 
-    const user = await storage.getUserById(userId)
+    let user = undefined
+    try {
+      user = await storage.getUserById(userId)
+    } catch (_) {
+      return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+    }
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
@@ -37,15 +45,21 @@ export async function POST(request: Request) {
   user.verificationCode = undefined
   user.verificationCodeExpiry = undefined
   user.updatedAt = new Date()
-  await storage.saveUser(user)
+  try {
+    await storage.saveUser(user)
+  } catch (_) {
+    return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+  }
 
-  await Promise.all([
-    sendWelcomeEmail(user.email, user.username),
-    sendAdminLog(
-      "Email verified",
-      `<p>User <strong>${user.username}</strong> verified their email.</p>`
-    ),
-  ])
+  try {
+    await Promise.all([
+      sendWelcomeEmail(user.email, user.username),
+      sendAdminLog(
+        "Email verified",
+        `<p>User <strong>${user.username}</strong> verified their email.</p>`
+      ),
+    ])
+  } catch (_) {}
 
     return NextResponse.json({
       success: true,

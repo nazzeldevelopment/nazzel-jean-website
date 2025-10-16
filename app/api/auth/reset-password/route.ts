@@ -4,6 +4,9 @@ import { hashPassword } from "@/lib/auth/client-utils"
 
 export async function POST(request: Request) {
   try {
+    if (!process.env.MONGODB_URI) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 })
+    }
     const body = await request.json()
     const { email, code, newPassword } = body
 
@@ -11,7 +14,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
     }
 
-    const user = await storage.getUserByEmail(email)
+    let user = undefined
+    try {
+      user = await storage.getUserByEmail(email)
+    } catch (_) {
+      return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+    }
     if (!user) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 })
     }
@@ -33,7 +41,11 @@ export async function POST(request: Request) {
     user.resetPasswordCode = undefined
     user.resetPasswordCodeExpiry = undefined
     user.updatedAt = new Date()
-    await storage.saveUser(user)
+    try {
+      await storage.saveUser(user)
+    } catch (_) {
+      return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+    }
 
     return NextResponse.json({
       success: true,

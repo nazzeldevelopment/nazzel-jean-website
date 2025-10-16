@@ -5,6 +5,9 @@ import { sendPasswordResetEmail, sendAdminLog } from "@/lib/email"
 
 export async function POST(request: Request) {
   try {
+    if (!process.env.MONGODB_URI) {
+      return NextResponse.json({ error: "Database not configured" }, { status: 503 })
+    }
     const body = await request.json()
     const { email } = body
 
@@ -12,7 +15,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
 
-    const user = await storage.getUserByEmail(email)
+    let user = undefined
+    try {
+      user = await storage.getUserByEmail(email)
+    } catch (e) {
+      // Treat DB unavailability as success to avoid user enumeration and 500s
+      return NextResponse.json({
+        success: true,
+        message: "If the email exists, a reset code has been sent.",
+      })
+    }
     if (!user) {
       // Don't reveal if email exists
       return NextResponse.json({
@@ -28,7 +40,15 @@ export async function POST(request: Request) {
     user.resetPasswordCode = resetCode
     user.resetPasswordCodeExpiry = resetCodeExpiry
     user.updatedAt = new Date()
-    await storage.saveUser(user)
+    try {
+      await storage.saveUser(user)
+    } catch (e) {
+      // Still respond success (don't leak infra errors)
+      return NextResponse.json({
+        success: true,
+        message: "If the email exists, a reset code has been sent.",
+      })
+    }
 
     // Send reset email via SMTP (do not fail the request if email send fails)
     try {
