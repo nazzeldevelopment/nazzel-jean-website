@@ -25,7 +25,12 @@ export const metadata: Metadata = {
   title: "Nazzel & Avionna | Our Love Story Forever",
   description:
     "Welcome to the official page of Nazzel and Avionna — a story of love, faith, and forever. Discover our journey together, filled with laughter, adventures, and unbreakable bond.",
-    generator: 'v0.app'
+    generator: 'v0.app',
+  icons: {
+    icon: "/placeholder-logo.png", // ensures browsers don’t request /favicon.ico implicitly
+    shortcut: "/placeholder-logo.png",
+    apple: "/placeholder-logo.png",
+  },
 }
 
 export default function RootLayout({
@@ -43,7 +48,7 @@ export default function RootLayout({
           <CookieConsent />
           <ThemeCustomizer />
         </div>
-        <Analytics />
+        {globalThis.process?.env?.NODE_ENV === "production" ? <Analytics /> : null}
       </body>
     </html>
   )

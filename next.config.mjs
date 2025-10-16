@@ -13,6 +13,19 @@ const nextConfig = {
     unoptimized: true,
   },
 
+  async redirects() {
+    return []
+  },
+
+  async rewrites() {
+    return [
+      {
+        source: "/favicon.ico",
+        destination: "/placeholder-logo.png",
+      },
+    ]
+  },
+
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {

@@ -3,11 +3,17 @@
 
 export function hashPassword(password: string): string {
   // Simple hash for demo (use bcrypt in production)
-  return btoa(password)
+  // Use Buffer to work in both Node (server) and browser
+  return typeof window === "undefined"
+    ? Buffer.from(password, "utf-8").toString("base64")
+    : btoa(password)
 }
 
 export function verifyPassword(password: string, hash: string): boolean {
-  return btoa(password) === hash
+  const encoded = typeof window === "undefined"
+    ? Buffer.from(password, "utf-8").toString("base64")
+    : btoa(password)
+  return encoded === hash
 }
 
 export function generateOTP(): string {
