@@ -1,3 +1,4 @@
+// 🧠 User Account Interface
 export interface User {
   id: string
   username: string
@@ -23,6 +24,7 @@ export interface User {
   updatedAt: Date
 }
 
+// 💌 Forum Post Interface
 export interface ForumPost {
   id: string
   userId: string
@@ -30,18 +32,19 @@ export interface ForumPost {
   title: string
   content: string
   category: "Love Letters" | "Memories" | "Thoughts & Quotes" | "Future Dreams" | "Open Talks"
-  tags: string[] // e.g., ["anniversary", "promise", "memory"]
+  tags: string[]
   mood?: "Happy" | "Hopeful" | "Sentimental" | "Thoughtful" | "Excited"
   likes: number
   replies: number
   views: number
-  seenBy: string[] // Array of user IDs who viewed the post
+  seenBy: string[]
   shares: number
   reactions: PostReaction[]
   createdAt: Date
   updatedAt: Date
 }
 
+// 💬 Forum Reply Interface
 export interface ForumReply {
   id: string
   postId: string
@@ -54,6 +57,7 @@ export interface ForumReply {
   updatedAt: Date
 }
 
+// 🥰 Reactions Interface
 export interface PostReaction {
   userId: string
   username: string
@@ -61,6 +65,7 @@ export interface PostReaction {
   createdAt: Date
 }
 
+// 🔐 Session Interface
 export interface Session {
   id: string
   userId: string
@@ -69,6 +74,7 @@ export interface Session {
   createdAt: Date
 }
 
+// 💭 Private Messaging Interface
 export interface PrivateMessage {
   id: string
   senderId: string
@@ -83,6 +89,7 @@ export interface PrivateMessage {
   updatedAt: Date
 }
 
+// ⌨️ Typing Status Interface
 export interface TypingStatus {
   userId: string
   username: string
@@ -90,6 +97,7 @@ export interface TypingStatus {
   lastUpdate: Date
 }
 
+// 🖼️ Gallery Album Interface
 export interface GalleryAlbum {
   id: string
   title: string
@@ -103,6 +111,7 @@ export interface GalleryAlbum {
   updatedAt: Date
 }
 
+// 📸 Gallery Photo Interface
 export interface GalleryPhoto {
   id: string
   albumId: string
