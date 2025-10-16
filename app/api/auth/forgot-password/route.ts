@@ -30,8 +30,12 @@ export async function POST(request: Request) {
     user.updatedAt = new Date()
     await storage.saveUser(user)
 
-    // Send reset email via SMTP
-    await sendPasswordResetEmail(email, user.username, resetCode)
+    // Send reset email via SMTP (do not fail the request if email send fails)
+    try {
+      await sendPasswordResetEmail(email, user.username, resetCode)
+    } catch (e) {
+      console.warn("Password reset email failed to send:", e)
+    }
 
     // Admin log
     await sendAdminLog(
