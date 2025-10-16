@@ -1,5 +1,42 @@
 # Change Logs
 
+## Reliability and 5xx Hardening - October 2025
+
+### Summary
+Eliminated unexpected 500 Internal Server Errors by enforcing MongoDB-only storage and adding safe, explicit failure modes across auth and forum API routes. Endpoints now return clear 4xx/503 responses instead of 500 when configuration or dependencies are missing/unavailable.
+
+### Key Changes
+- Enforced MongoDB-only usage across storage (no local/in-memory fallbacks for any feature)
+- Added DB configuration/availability guards (return 503 instead of 500):
+  - Signup, Login, Verify Email, Forgot Password, Reset Password
+  - Forum: Posts list/create
+  - Users: Online status (list/update)
+- Prevented email failures from causing endpoint errors (best-effort logs/emails only)
+- Maintained principle: no user enumeration; safe success responses in forgot-password
+
+### Files Modified
+- `lib/db/storage.ts`: Removed all in-memory fallback paths; all methods use MongoDB only
+- `app/api/auth/login/route.ts`: 503 on DB missing/unavailable; wrapped DB ops; no 500s
+- `app/api/auth/forgot-password/route.ts`: 503 on DB missing; still returns success if DB/email fails
+- `app/api/auth/signup/route.ts`: 503 on DB unavailable; email/admin-log failures ignored
+- `app/api/auth/reset-password/route.ts`: 503 on DB unavailable; wrapped DB ops
+- `app/api/auth/verify-email/route.ts`: 503 on DB unavailable; email/admin-log failures ignored
+- `app/api/forum/posts/route.ts`: 503 on DB missing; admin-log failures ignored
+- `app/api/users/online/route.ts`: 503 when DB missing; online status fully via MongoDB
+
+### Environment Variables (required)
+```env
+MONGODB_URI=...
+# Optional email
+SMTP_HOST=...
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASS=...
+# Or Gmail
+GMAIL_USER=...
+GMAIL_APP_PASSWORD=...
+```
+
 ## Security and Hosting Compatibility Update - October 2025
 
 ### Summary
