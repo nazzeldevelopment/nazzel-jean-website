@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import type { User } from "@/lib/db/models"
 import { storage } from "@/lib/db/storage"
-import { hashPassword, generateOTP, calculateAge, sendEmailOTP } from "@/lib/auth/client-utils"
+import { hashPassword, generateOTP, calculateAge } from "@/lib/auth/client-utils"
+import { sendVerificationEmail, sendAdminLog } from "@/lib/email"
 
 export async function POST(request: Request) {
   try {
@@ -54,8 +55,14 @@ export async function POST(request: Request) {
 
     await storage.saveUser(user)
 
-    // Send verification email
-    sendEmailOTP(email, verificationCode, "verification")
+    // Send verification email via SMTP
+    await sendVerificationEmail(email, username, verificationCode)
+
+    // Admin log
+    await sendAdminLog(
+      "New signup",
+      `<p>User <strong>${username}</strong> signed up with <strong>${email}</strong>.</p>`
+    )
 
     console.log(`[v0] Sending member role notification to ${email}`)
     console.log(`[v0] Welcome ${username}! You have been granted MEMBER role access.`)

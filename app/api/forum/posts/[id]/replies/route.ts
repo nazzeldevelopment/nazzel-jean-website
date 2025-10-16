@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server"
 import type { ForumReply } from "@/lib/db/models"
 import { storage } from "@/lib/db/storage"
+import { sendAdminLog } from "@/lib/email"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const replies = await storage.getReplies(params.id)
     return NextResponse.json({ replies })
   } catch (error) {
-    console.error("[v0] Get replies error:", error)
+    console.error("Nazzel and Aviona Get replies error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -60,9 +61,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
       await storage.savePost(post)
     }
 
+    await sendAdminLog(
+      "Reply created",
+      `<p>User <strong>${user.username}</strong> replied to post "${post?.title || params.id}".</p>`
+    )
+
     return NextResponse.json({ success: true, reply })
   } catch (error) {
-    console.error("[v0] Create reply error:", error)
+    console.error("Nazzel and Aviona Create reply error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

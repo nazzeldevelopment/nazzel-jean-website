@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { storage } from "@/lib/db/storage"
-import { generateOTP, sendEmailOTP } from "@/lib/auth/client-utils"
+import { generateOTP } from "@/lib/auth/client-utils"
+import { sendPasswordResetEmail, sendAdminLog } from "@/lib/email"
 
 export async function POST(request: Request) {
   try {
@@ -29,8 +30,14 @@ export async function POST(request: Request) {
     user.updatedAt = new Date()
     await storage.saveUser(user)
 
-    // Send reset email
-    sendEmailOTP(email, resetCode, "reset")
+    // Send reset email via SMTP
+    await sendPasswordResetEmail(email, user.username, resetCode)
+
+    // Admin log
+    await sendAdminLog(
+      "Password reset requested",
+      `<p>Reset requested for <strong>${email}</strong>.</p>`
+    )
 
     return NextResponse.json({
       success: true,

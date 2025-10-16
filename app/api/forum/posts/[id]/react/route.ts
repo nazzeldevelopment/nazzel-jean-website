@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { storage } from "@/lib/db/storage"
 import type { PostReaction } from "@/lib/db/models"
+import { sendAdminLog } from "@/lib/email"
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -52,6 +53,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
 
     await storage.savePost(post)
+
+    // Admin log
+    await sendAdminLog(
+      "Post reaction",
+      `<p>User <strong>${user.username}</strong> ${existingReaction ? "removed" : "added"} a reaction (${emoji}) on post "${post.title}".</p>`
+    )
 
     return NextResponse.json({ success: true, reactions: post.reactions })
   } catch (error) {

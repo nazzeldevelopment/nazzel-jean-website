@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { storage } from "@/lib/db/storage"
 import type { PostReaction } from "@/lib/db/models"
+import { sendAdminLog } from "@/lib/email"
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -53,9 +54,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
     await storage.saveReply(reply)
 
+    await sendAdminLog(
+      "Reply reaction",
+      `<p>User <strong>${user.username}</strong> ${existingReaction ? "removed" : "added"} a reaction (${emoji}) on a reply.</p>`
+    )
+
     return NextResponse.json({ success: true, reactions: reply.reactions })
   } catch (error) {
-    console.error("[v0] React to reply error:", error)
+    console.error("Nazzel and Aviona React to reply error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

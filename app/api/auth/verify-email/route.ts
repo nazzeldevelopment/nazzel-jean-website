@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { storage } from "@/lib/db/storage"
+import { sendWelcomeEmail, sendAdminLog } from "@/lib/email"
 
 export async function POST(request: Request) {
   try {
@@ -31,12 +32,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid verification code" }, { status: 400 })
     }
 
-    // Verify user
-    user.isVerified = true
-    user.verificationCode = undefined
-    user.verificationCodeExpiry = undefined
-    user.updatedAt = new Date()
-    await storage.saveUser(user)
+  // Verify user
+  user.isVerified = true
+  user.verificationCode = undefined
+  user.verificationCodeExpiry = undefined
+  user.updatedAt = new Date()
+  await storage.saveUser(user)
+
+  await Promise.all([
+    sendWelcomeEmail(user.email, user.username),
+    sendAdminLog(
+      "Email verified",
+      `<p>User <strong>${user.username}</strong> verified their email.</p>`
+    ),
+  ])
 
     return NextResponse.json({
       success: true,

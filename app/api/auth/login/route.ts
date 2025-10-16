@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { storage } from "@/lib/db/storage"
 import { verifyPassword, generateToken, hashPassword } from "@/lib/auth/client-utils"
 import type { Session, User } from "@/lib/db/models"
+import { sendAdminLog } from "@/lib/email"
 
 const MAX_FAILED_ATTEMPTS = 5
 const LOCK_DURATION = 300000 // 5 minutes in milliseconds
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
       }
       await storage.saveSession(session)
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         message: "Admin login successful",
         token,
@@ -64,6 +65,12 @@ export async function POST(request: Request) {
           role: "admin",
         },
       })
+
+      await sendAdminLog(
+        "Admin login",
+        `<p>Admin <strong>${adminUser.username}</strong> logged in.</p>`
+      )
+      return response
     }
 
     // Find user by email or username
@@ -118,7 +125,7 @@ export async function POST(request: Request) {
     }
     await storage.saveSession(session)
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: "Login successful",
       token,
@@ -128,8 +135,14 @@ export async function POST(request: Request) {
         email: user.email,
       },
     })
+
+    await sendAdminLog(
+      "User login",
+      `<p>User <strong>${user.username}</strong> logged in.</p>`
+    )
+    return response
   } catch (error) {
-    console.error("[v0] Login error:", error)
+    console.error("Nazzel and Aviona Login error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

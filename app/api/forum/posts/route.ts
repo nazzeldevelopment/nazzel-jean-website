@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server"
 import type { ForumPost } from "@/lib/db/models"
 import { storage } from "@/lib/db/storage"
+import { sendAdminLog } from "@/lib/email"
 
 export async function GET() {
   try {
     const posts = await storage.getPosts()
     return NextResponse.json({ posts })
   } catch (error) {
-    console.error("[v0] Get posts error:", error)
+    console.error("Nazzel and Aviona Get posts error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -62,9 +63,15 @@ export async function POST(request: Request) {
     user.postCount = (user.postCount || 0) + 1
     await storage.saveUser(user)
 
+    // Admin log
+    await sendAdminLog(
+      "Forum post created",
+      `<p>User <strong>${user.username}</strong> created a post titled "${title}".</p>`
+    )
+
     return NextResponse.json({ success: true, post })
   } catch (error) {
-    console.error("[v0] Create post error:", error)
+    console.error("Nazzel and Aviona Create post error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

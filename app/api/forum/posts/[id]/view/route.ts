@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { storage } from "@/lib/db/storage"
+import { sendAdminLog } from "@/lib/email"
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -22,9 +23,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
     await storage.savePost(post)
 
+    await sendAdminLog(
+      "Post viewed",
+      `<p>Post titled "${post.title}" viewed. Total views: ${post.views}.</p>`
+    )
+
     return NextResponse.json({ success: true, views: post.views, seenCount: post.seenBy.length })
   } catch (error) {
-    console.error("[v0] View post error:", error)
+    console.error("Nazzel and Aviona View post error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
