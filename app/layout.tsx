@@ -48,7 +48,9 @@ export default function RootLayout({
           <CookieConsent />
           <ThemeCustomizer />
         </div>
-        {globalThis.process?.env?.NODE_ENV === "production" ? <Analytics /> : null}
+        {(globalThis.process?.env?.VERCEL_ANALYTICS_ID || globalThis.process?.env?.NEXT_PUBLIC_VERCEL_ANALYTICS_ID)
+          ? <Analytics />
+          : null}
       </body>
     </html>
   )
