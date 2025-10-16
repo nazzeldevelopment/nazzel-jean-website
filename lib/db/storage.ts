@@ -16,48 +16,28 @@ const inMemoryStorage = {
 class Storage {
   // Users
   async getUsers(): Promise<User[]> {
-    try {
-      return await mongodb.getUsers()
-    } catch (error) {
-      console.warn("MongoDB not available, using in-memory storage")
-      return Array.from(inMemoryStorage.users.values())
-    }
+    // Force MongoDB usage for users; no in-memory fallback to avoid divergence
+    return await mongodb.getUsers()
   }
 
   async saveUser(user: User): Promise<void> {
-    try {
-      await mongodb.saveUser(user)
-    } catch (error) {
-      console.warn("MongoDB not available, using in-memory storage")
-      inMemoryStorage.users.set(user.id, user)
-    }
+    // Force MongoDB usage for users; do not persist to in-memory
+    await mongodb.saveUser(user)
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    try {
-      return await mongodb.getUserByEmail(email)
-    } catch (error) {
-      console.warn("MongoDB not available, using in-memory storage")
-      return Array.from(inMemoryStorage.users.values()).find(u => u.email.toLowerCase() === email.toLowerCase())
-    }
+    // Force MongoDB usage for users; no in-memory lookup
+    return await mongodb.getUserByEmail(email)
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    try {
-      return await mongodb.getUserByUsername(username)
-    } catch (error) {
-      console.warn("MongoDB not available, using in-memory storage")
-      return Array.from(inMemoryStorage.users.values()).find(u => u.username.toLowerCase() === username.toLowerCase())
-    }
+    // Force MongoDB usage for users; no in-memory lookup
+    return await mongodb.getUserByUsername(username)
   }
 
   async getUserById(id: string): Promise<User | undefined> {
-    try {
-      return await mongodb.getUserById(id)
-    } catch (error) {
-      console.warn("MongoDB not available, using in-memory storage")
-      return inMemoryStorage.users.get(id)
-    }
+    // Force MongoDB usage for users; no in-memory lookup
+    return await mongodb.getUserById(id)
   }
 
   async getOnlineUsers(): Promise<User[]> {

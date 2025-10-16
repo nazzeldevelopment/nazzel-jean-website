@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
     if (usernameOrEmail === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
       // Check if admin user exists, if not create it
-      let adminUser = storage.getUserByUsername(ADMIN_USERNAME)
+      let adminUser = await storage.getUserByUsername(ADMIN_USERNAME)
 
       if (!adminUser) {
         adminUser = {
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
           createdAt: new Date(),
           updatedAt: new Date(),
         } as User
-        storage.saveUser(adminUser)
+        await storage.saveUser(adminUser)
       }
 
       // Create admin session
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         createdAt: new Date(),
       }
-      storage.saveSession(session)
+      await storage.saveSession(session)
 
       return NextResponse.json({
         success: true,
@@ -67,9 +67,9 @@ export async function POST(request: Request) {
     }
 
     // Find user by email or username
-    let user = storage.getUserByEmail(usernameOrEmail)
+    let user = await storage.getUserByEmail(usernameOrEmail)
     if (!user) {
-      user = storage.getUserByUsername(usernameOrEmail)
+      user = await storage.getUserByUsername(usernameOrEmail)
     }
 
     if (!user) {
@@ -94,18 +94,18 @@ export async function POST(request: Request) {
       if (user.failedLoginAttempts >= MAX_FAILED_ATTEMPTS) {
         user.accountLockedUntil = new Date(Date.now() + LOCK_DURATION)
         user.failedLoginAttempts = 0
-        storage.saveUser(user)
+        await storage.saveUser(user)
         return NextResponse.json({ error: "Too many failed attempts. Account locked for 5 minutes." }, { status: 423 })
       }
 
-      storage.saveUser(user)
+      await storage.saveUser(user)
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
     // Reset failed attempts
     user.failedLoginAttempts = 0
     user.accountLockedUntil = undefined
-    storage.saveUser(user)
+    await storage.saveUser(user)
 
     // Create session
     const token = generateToken()
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       createdAt: new Date(),
     }
-    storage.saveSession(session)
+    await storage.saveSession(session)
 
     return NextResponse.json({
       success: true,

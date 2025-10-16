@@ -11,7 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
     }
 
-    const user = storage.getUserByEmail(email)
+    const user = await storage.getUserByEmail(email)
     if (!user) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 })
     }
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     user.resetPasswordCode = undefined
     user.resetPasswordCodeExpiry = undefined
     user.updatedAt = new Date()
-    storage.saveUser(user)
+    await storage.saveUser(user)
 
     return NextResponse.json({
       success: true,

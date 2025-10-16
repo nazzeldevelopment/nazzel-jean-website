@@ -20,11 +20,11 @@ export async function POST(request: Request) {
     }
 
     // Check if user exists
-    if (storage.getUserByEmail(email)) {
+    if (await storage.getUserByEmail(email)) {
       return NextResponse.json({ error: "Email already registered" }, { status: 400 })
     }
 
-    if (storage.getUserByUsername(username)) {
+    if (await storage.getUserByUsername(username)) {
       return NextResponse.json({ error: "Username already taken" }, { status: 400 })
     }
 
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       updatedAt: new Date(),
     }
 
-    storage.saveUser(user)
+    await storage.saveUser(user)
 
     // Send verification email
     sendEmailOTP(email, verificationCode, "verification")

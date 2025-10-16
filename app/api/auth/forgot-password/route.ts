@@ -11,7 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
 
-    const user = storage.getUserByEmail(email)
+    const user = await storage.getUserByEmail(email)
     if (!user) {
       // Don't reveal if email exists
       return NextResponse.json({
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     user.resetPasswordCode = resetCode
     user.resetPasswordCodeExpiry = resetCodeExpiry
     user.updatedAt = new Date()
-    storage.saveUser(user)
+    await storage.saveUser(user)
 
     // Send reset email
     sendEmailOTP(email, resetCode, "reset")
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       message: "If the email exists, a reset code has been sent.",
     })
   } catch (error) {
-    console.error("[v0] Forgot password error:", error)
+    console.error("Nazzel and Aviona Forgot password error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

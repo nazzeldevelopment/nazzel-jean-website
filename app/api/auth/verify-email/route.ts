@@ -10,7 +10,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User ID and code are required" }, { status: 400 })
     }
 
-    const user = storage.getUserById(userId)
+    const user = await storage.getUserById(userId)
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     user.verificationCode = undefined
     user.verificationCodeExpiry = undefined
     user.updatedAt = new Date()
-    storage.saveUser(user)
+    await storage.saveUser(user)
 
     return NextResponse.json({
       success: true,
