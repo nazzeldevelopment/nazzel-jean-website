@@ -59,7 +59,7 @@ export function checkPasswordStrength(password: string): {
 
 export function sendEmailOTP(email: string, code: string, type: "verification" | "reset"): void {
   // Mock email service (log to console in development)
-  console.log(`[v0] Email sent to ${email}`)
-  console.log(`[v0] ${type === "verification" ? "Verification" : "Password Reset"} Code: ${code}`)
-  console.log(`[v0] This code expires in 10 minutes`)
+  console.log(`[Nazzel And Avionna] Email sent to ${email}`)
+  console.log(`[Nazzel and Avionna] ${type === "verification" ? "Verification" : "Password Reset"} Code: ${code}`)
+  console.log(`[Nazzel and Avionna] This code expires in 10 minutes`)
 }
