@@ -1,5 +1,29 @@
 # Change Logs
 
+## Security and Hosting Compatibility Update - October 2025
+
+### Summary
+Hardened authentication by removing the admin backdoor, fixed server-only crashes in password hashing, and made the app fully host-agnostic (works on Render and others). Also ensured favicon is always served to eliminate 404s.
+
+### Key Changes
+- Removed hardcoded admin credentials and backdoor flow from login API
+- Replaced browser-only `btoa` usage with Node-safe `Buffer` in auth utils
+- Added explicit favicon handling via an app route to avoid `/favicon.ico` 404s on any host
+- Removed Vercel-specific Analytics component to avoid missing script errors and make deployment provider-agnostic
+- Added icons metadata so browsers have consistent favicon sources
+- Optional rewrite for `/favicon.ico` to an existing asset for extra safety
+
+### Files Modified
+- `app/api/auth/login/route.ts`: Removed admin bypass; cleaned imports
+- `lib/auth/client-utils.ts`: Use `Buffer` fallback for base64 hashing and verification
+- `app/layout.tsx`: Removed `@vercel/analytics/next`; added `metadata.icons`
+- `app/favicon.ico/route.ts`: New route; 308-redirects to `public/placeholder-logo.png`
+- `next.config.mjs`: Added `rewrites()` mapping `/favicon.ico` → `/placeholder-logo.png`
+
+### Notes
+- Redeploy is required for the new `app/favicon.ico/route.ts` to take effect.
+- If you later enable a generic analytics solution, add it in a provider-agnostic way.
+
 ## Auth, Email, and Logging Overhaul - October 2025
 
 ### Summary
