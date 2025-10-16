@@ -1,12 +1,16 @@
+// path: /app/api/auth/reset-password/route.ts
 import { NextResponse } from "next/server"
 import { storage } from "@/lib/db/storage"
 import { hashPassword } from "@/lib/auth/client-utils"
+import { sendAdminLog, emailTemplates, transporter } from "@/lib/email"
+import nodemailer from "nodemailer"
 
 export async function POST(request: Request) {
   try {
     if (!process.env.MONGODB_URI) {
       return NextResponse.json({ error: "Database not configured" }, { status: 503 })
     }
+
     const body = await request.json()
     const { email, code, newPassword } = body
 
@@ -14,12 +18,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
     }
 
-    let user = undefined
+    let user
     try {
       user = await storage.getUserByEmail(email)
     } catch (_) {
       return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
     }
+
     if (!user) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 })
     }
@@ -41,10 +46,37 @@ export async function POST(request: Request) {
     user.resetPasswordCode = undefined
     user.resetPasswordCodeExpiry = undefined
     user.updatedAt = new Date()
+
     try {
       await storage.saveUser(user)
     } catch (_) {
       return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
+    }
+
+    // Send confirmation email to user
+    try {
+      const mailOptions = {
+        from: process.env.EMAIL_FROM || process.env.NOREPLY_EMAIL || "no-reply@nazzelandavionna.site",
+        to: email,
+        subject: "✅ Password Reset Successful - Nazzel & Avionna",
+        html: emailTemplates.passwordReset(user.username, "Your password has been changed successfully!").html.replace(
+          "${resetCode}",
+          "✔️"
+        ),
+      }
+      await transporter.sendMail(mailOptions)
+    } catch (e) {
+      console.warn("Password reset confirmation email failed:", e)
+    }
+
+    // Admin log
+    try {
+      await sendAdminLog(
+        "Password reset completed",
+        `<p>Password successfully reset for <strong>${email}</strong>.</p>`
+      )
+    } catch (e) {
+      console.warn("Admin log failed:", e)
     }
 
     return NextResponse.json({
@@ -52,7 +84,7 @@ export async function POST(request: Request) {
       message: "Password reset successfully! You can now login.",
     })
   } catch (error) {
-    console.error("[v0] Reset password error:", error)
+    console.error("Reset password error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
