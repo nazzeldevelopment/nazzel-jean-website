@@ -1,11 +1,19 @@
 import "server-only"
 import { mongodb } from "./mongodb"
-import type { User, ForumPost, ForumReply, Session, PrivateMessage, TypingStatus, GalleryAlbum } from "./models"
+import type {
+  User,
+  ForumPost,
+  ForumReply,
+  Session,
+  PrivateMessage,
+  TypingStatus,
+  GalleryAlbum,
+} from "./models"
 
 class Storage {
-  // Users
+  // USERS
   async getUsers(): Promise<User[]> {
-    return await mongodb.getUsers()
+    return mongodb.getUsers()
   }
 
   async saveUser(user: User): Promise<void> {
@@ -13,28 +21,28 @@ class Storage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return await mongodb.getUserByEmail(email)
+    return mongodb.getUserByEmail(email)
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return await mongodb.getUserByUsername(username)
+    return mongodb.getUserByUsername(username)
   }
 
   async getUserById(id: string): Promise<User | undefined> {
-    return await mongodb.getUserById(id)
+    return mongodb.getUserById(id)
   }
 
   async getOnlineUsers(): Promise<User[]> {
-    return await mongodb.getOnlineUsers()
+    return mongodb.getOnlineUsers()
   }
 
   async updateUserOnlineStatus(userId: string, isOnline: boolean): Promise<void> {
     await mongodb.updateUserOnlineStatus(userId, isOnline)
   }
 
-  // Forum Posts
+  // FORUM POSTS
   async getPosts(): Promise<ForumPost[]> {
-    return await mongodb.getPosts()
+    return mongodb.getPosts()
   }
 
   async savePost(post: ForumPost): Promise<void> {
@@ -42,12 +50,12 @@ class Storage {
   }
 
   async getPostById(id: string): Promise<ForumPost | undefined> {
-    return await mongodb.getPostById(id)
+    return mongodb.getPostById(id)
   }
 
-  // Forum Replies
+  // FORUM REPLIES
   async getReplies(postId: string): Promise<ForumReply[]> {
-    return await mongodb.getReplies(postId)
+    return mongodb.getReplies(postId)
   }
 
   async saveReply(reply: ForumReply): Promise<void> {
@@ -55,12 +63,12 @@ class Storage {
   }
 
   async getReplyById(replyId: string): Promise<ForumReply | undefined> {
-    return await mongodb.getReplyById(replyId)
+    return mongodb.getReplyById(replyId)
   }
 
-  // Sessions
+  // SESSIONS
   async getSessions(): Promise<Session[]> {
-    return await mongodb.getSessions()
+    return mongodb.getSessions()
   }
 
   async saveSession(session: Session): Promise<void> {
@@ -68,16 +76,16 @@ class Storage {
   }
 
   async getSessionByToken(token: string): Promise<Session | undefined> {
-    return await mongodb.getSessionByToken(token)
+    return mongodb.getSessionByToken(token)
   }
 
   async deleteSession(token: string): Promise<void> {
     await mongodb.deleteSession(token)
   }
 
-  // Private Messages
+  // PRIVATE MESSAGES
   async getMessages(userId1: string, userId2: string): Promise<PrivateMessage[]> {
-    return await mongodb.getMessages(userId1, userId2)
+    return mongodb.getMessages(userId1, userId2)
   }
 
   async saveMessage(message: PrivateMessage): Promise<void> {
@@ -89,21 +97,21 @@ class Storage {
   }
 
   async getUnreadCount(userId: string): Promise<number> {
-    return await mongodb.getUnreadCount(userId)
+    return mongodb.getUnreadCount(userId)
   }
 
-  // Typing Status
+  // TYPING STATUS
   async getTypingStatus(userId: string): Promise<TypingStatus | undefined> {
-    return await mongodb.getTypingStatus(userId)
+    return mongodb.getTypingStatus(userId)
   }
 
   async updateTypingStatus(status: TypingStatus): Promise<void> {
     await mongodb.updateTypingStatus(status)
   }
 
-  // Gallery Albums
+  // GALLERY ALBUMS
   async getAlbums(): Promise<GalleryAlbum[]> {
-    return await mongodb.getAlbums()
+    return mongodb.getAlbums()
   }
 
   async saveAlbum(album: GalleryAlbum): Promise<void> {
@@ -111,16 +119,20 @@ class Storage {
   }
 
   async getAlbumById(id: string): Promise<GalleryAlbum | undefined> {
-    return await mongodb.getAlbumById(id)
+    return mongodb.getAlbumById(id)
   }
 
   async deleteAlbum(id: string): Promise<void> {
     await mongodb.deleteAlbum(id)
   }
 
-  // Utility methods
+  async getAlbumsByUser(userId: string): Promise<GalleryAlbum[]> {
+    return mongodb.getAlbumsByUser(userId)
+  }
+
+  // UTILITIES
   async isMongoConnected(): Promise<boolean> {
-    return await mongodb.isConnected()
+    return mongodb.isConnected()
   }
 
   async getStats(): Promise<{
@@ -130,7 +142,7 @@ class Storage {
     messages: number
     albums: number
   }> {
-    return await mongodb.getStats()
+    return mongodb.getStats()
   }
 }
 
