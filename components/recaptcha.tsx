@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import ReCAPTCHA from "react-google-recaptcha"
 
 interface ReCaptchaProps {
@@ -24,39 +24,31 @@ export function ReCaptcha({
   const [isLoaded, setIsLoaded] = useState(false)
   const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
 
+  // ✅ Load Google reCAPTCHA script manually if not loaded yet
   useEffect(() => {
-    // Check if reCAPTCHA is loaded
-    const checkRecaptcha = () => {
-      if (window.grecaptcha && window.grecaptcha.render) {
-        setIsLoaded(true)
-      } else {
-        setTimeout(checkRecaptcha, 100)
-      }
+    const existingScript = document.querySelector('script[src*="recaptcha/api.js"]')
+    if (existingScript) {
+      setIsLoaded(true)
+      return
     }
-    checkRecaptcha()
+
+    const script = document.createElement("script")
+    script.src = `https://www.google.com/recaptcha/api.js?render=explicit`
+    script.async = true
+    script.defer = true
+    script.onload = () => setIsLoaded(true)
+    document.body.appendChild(script)
   }, [])
 
   const handleVerify = (token: string | null) => onVerify(token)
   const handleExpire = () => onExpire?.()
   const handleError = () => onError?.()
 
-  const resetRecaptcha = () => recaptchaRef.current?.reset()
-
-  // Expose reset function for parent components
-  useEffect(() => {
-    if (recaptchaRef.current) {
-      (recaptchaRef.current as any).resetRecaptcha = resetRecaptcha
-    }
-  }, [])
-
-  // 🟥 Missing site key handler
   if (!siteKey) {
     return (
       <div className={`p-4 border border-red-500 rounded ${className}`}>
         <p className="text-red-500 text-sm">⚠️ reCAPTCHA not configured</p>
-        <p className="text-xs text-gray-500">
-          Please add NEXT_PUBLIC_RECAPTCHA_SITE_KEY to your environment variables
-        </p>
+        <p className="text-xs text-gray-500">Add NEXT_PUBLIC_RECAPTCHA_SITE_KEY in .env file</p>
       </div>
     )
   }
@@ -84,7 +76,7 @@ export function ReCaptcha({
   )
 }
 
-// ✅ Hook for managing reCAPTCHA state (no changes needed)
+// ✅ Hook for managing state (optional)
 export function useReCaptcha() {
   const [isVerified, setIsVerified] = useState(false)
   const [token, setToken] = useState<string | null>(null)
@@ -119,13 +111,5 @@ export function useReCaptcha() {
     setError(null)
   }
 
-  return {
-    isVerified,
-    token,
-    error,
-    handleVerify,
-    handleExpire,
-    handleError,
-    reset
-  }
+  return { isVerified, token, error, handleVerify, handleExpire, handleError, reset }
 }
