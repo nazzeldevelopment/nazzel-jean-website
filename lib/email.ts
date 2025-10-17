@@ -19,15 +19,151 @@ export function validateEmailConfig() {
   return true
 }
 
+// -------------------- Email Queue System --------------------
+interface EmailQueueItem {
+  id: string
+  to: string
+  subject: string
+  html: string
+  from?: string
+  attempts: number
+  maxAttempts: number
+  createdAt: Date
+  nextRetryAt: Date
+}
+
+class EmailQueue {
+  private queue: EmailQueueItem[] = []
+  private processing = false
+  private intervalId: NodeJS.Timeout | null = null
+
+  constructor() {
+    this.startProcessing()
+  }
+
+  add(item: Omit<EmailQueueItem, 'id' | 'attempts' | 'createdAt' | 'nextRetryAt'>) {
+    const queueItem: EmailQueueItem = {
+      ...item,
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      attempts: 0,
+      maxAttempts: item.maxAttempts || 3,
+      createdAt: new Date(),
+      nextRetryAt: new Date()
+    }
+    
+    this.queue.push(queueItem)
+    console.log(`Email queued: ${queueItem.subject} to ${queueItem.to}`)
+  }
+
+  private async processQueue() {
+    if (this.processing || this.queue.length === 0) return
+
+    this.processing = true
+    const now = new Date()
+    const readyItems = this.queue.filter(item => item.nextRetryAt <= now)
+
+    for (const item of readyItems) {
+      try {
+        await this.sendEmail(item)
+        this.removeFromQueue(item.id)
+        console.log(`Email sent successfully: ${item.subject} to ${item.to}`)
+      } catch (error) {
+        console.error(`Email send failed (attempt ${item.attempts + 1}):`, error)
+        item.attempts++
+        
+        if (item.attempts >= item.maxAttempts) {
+          console.error(`Email permanently failed after ${item.maxAttempts} attempts: ${item.subject}`)
+          this.removeFromQueue(item.id)
+        } else {
+          // Exponential backoff: 2^attempts minutes
+          const delayMinutes = Math.pow(2, item.attempts)
+          item.nextRetryAt = new Date(now.getTime() + delayMinutes * 60 * 1000)
+          console.log(`Email will retry in ${delayMinutes} minutes: ${item.subject}`)
+        }
+      }
+    }
+
+    this.processing = false
+  }
+
+  private async sendEmail(item: EmailQueueItem) {
+    const info = await transporter.sendMail({
+      from: item.from || `"Nazzel & Avionna" <${DEFAULT_FROM_EMAIL}>`,
+      to: item.to,
+      subject: item.subject,
+      html: item.html,
+      envelope: { from: DEFAULT_FROM_EMAIL, to: item.to },
+      replyTo: DEFAULT_FROM_EMAIL,
+    })
+    
+    return { success: true, messageId: info.messageId }
+  }
+
+  private removeFromQueue(id: string) {
+    this.queue = this.queue.filter(item => item.id !== id)
+  }
+
+  private startProcessing() {
+    // Process queue every 30 seconds
+    this.intervalId = setInterval(() => {
+      this.processQueue()
+    }, 30000)
+  }
+
+  stop() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId)
+      this.intervalId = null
+    }
+  }
+
+  getQueueStatus() {
+    return {
+      total: this.queue.length,
+      processing: this.processing,
+      items: this.queue.map(item => ({
+        id: item.id,
+        to: item.to,
+        subject: item.subject,
+        attempts: item.attempts,
+        nextRetryAt: item.nextRetryAt
+      }))
+    }
+  }
+}
+
+// Global email queue instance
+export const emailQueue = new EmailQueue()
+
 // -------------------- SMTP Transporter --------------------
 export const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: Number(process.env.SMTP_PORT) || 587,
-  secure: false,
+  secure: false, // true for 465, false for other ports
   auth: {
     user: process.env.SMTP_USER || "",
     pass: process.env.SMTP_PASS || "",
   },
+  // Optimized settings for Cloudflare email routing
+  pool: true, // Use connection pooling
+  maxConnections: 5, // Maximum number of connections in the pool
+  maxMessages: 100, // Maximum number of messages to send per connection
+  rateLimit: 10, // Maximum number of messages to send per second
+  // Connection timeout settings
+  connectionTimeout: 60000, // 60 seconds
+  greetingTimeout: 30000, // 30 seconds
+  socketTimeout: 60000, // 60 seconds
+  // Retry settings
+  retryDelay: 2000, // 2 seconds between retries
+  retryAttempts: 3, // Maximum number of retry attempts
+  // TLS settings for better compatibility
+  tls: {
+    rejectUnauthorized: false, // For Cloudflare email routing compatibility
+    ciphers: 'SSLv3'
+  },
+  // Debug mode for troubleshooting
+  debug: process.env.NODE_ENV === 'development',
+  logger: process.env.NODE_ENV === 'development'
 })
 
 // -------------------- Email Templates --------------------
@@ -203,11 +339,15 @@ export async function sendEmail({
   subject,
   html,
   from = `"Nazzel & Avionna" <${DEFAULT_FROM_EMAIL}>`,
+  immediate = false,
+  maxAttempts = 3
 }: {
   to: string
   subject: string
   html: string
   from?: string
+  immediate?: boolean
+  maxAttempts?: number
 }) {
   try {
     // Verify transporter configuration
@@ -215,17 +355,32 @@ export async function sendEmail({
       throw new Error("SMTP credentials not configured properly")
     }
 
-    const info = await transporter.sendMail({
-      from,
-      to,
-      subject,
-      html,
-      envelope: { from: DEFAULT_FROM_EMAIL, to },
-      replyTo: DEFAULT_FROM_EMAIL,
-    })
-    
-    console.log(`Email sent successfully to ${to}:`, info.messageId)
-    return { success: true, messageId: info.messageId }
+    if (immediate) {
+      // Send immediately without queuing
+      const info = await transporter.sendMail({
+        from,
+        to,
+        subject,
+        html,
+        envelope: { from: DEFAULT_FROM_EMAIL, to },
+        replyTo: DEFAULT_FROM_EMAIL,
+      })
+      
+      console.log(`Email sent immediately to ${to}:`, info.messageId)
+      return { success: true, messageId: info.messageId }
+    } else {
+      // Add to queue for reliable delivery
+      emailQueue.add({
+        to,
+        subject,
+        html,
+        from,
+        maxAttempts
+      })
+      
+      console.log(`Email queued for delivery to ${to}`)
+      return { success: true, messageId: "queued" }
+    }
   } catch (error) {
     console.error("Email sending failed:", error)
     throw error
@@ -233,40 +388,64 @@ export async function sendEmail({
 }
 
 // -------------------- Convenience Send Functions --------------------
-export async function sendVerificationEmail(to: string, username: string, verificationCode: string) {
+export async function sendVerificationEmail(to: string, username: string, verificationCode: string, immediate = true) {
   try {
     const template = emailTemplates.emailVerification(username, verificationCode)
-    return await sendEmail({ to, subject: template.subject, html: template.html })
+    return await sendEmail({ 
+      to, 
+      subject: template.subject, 
+      html: template.html,
+      immediate,
+      maxAttempts: 5 // More attempts for critical emails
+    })
   } catch (error) {
     console.error("Verification email failed:", error)
     throw error
   }
 }
 
-export async function sendPasswordResetEmail(to: string, username: string, resetCode: string) {
+export async function sendPasswordResetEmail(to: string, username: string, resetCode: string, immediate = true) {
   try {
     const template = emailTemplates.passwordReset(username, resetCode)
-    return await sendEmail({ to, subject: template.subject, html: template.html })
+    return await sendEmail({ 
+      to, 
+      subject: template.subject, 
+      html: template.html,
+      immediate,
+      maxAttempts: 5 // More attempts for critical emails
+    })
   } catch (error) {
     console.error("Password reset email failed:", error)
     throw error
   }
 }
 
-export async function sendWelcomeEmail(to: string, username: string) {
+export async function sendWelcomeEmail(to: string, username: string, immediate = false) {
   try {
     const template = emailTemplates.welcomeMember(username)
-    return await sendEmail({ to, subject: template.subject, html: template.html })
+    return await sendEmail({ 
+      to, 
+      subject: template.subject, 
+      html: template.html,
+      immediate,
+      maxAttempts: 3
+    })
   } catch (error) {
     console.error("Welcome email failed:", error)
     throw error
   }
 }
 
-export async function sendForumNotificationEmail(to: string, username: string, postTitle: string, notificationType: string) {
+export async function sendForumNotificationEmail(to: string, username: string, postTitle: string, notificationType: string, immediate = false) {
   try {
     const template = emailTemplates.forumNotification(username, postTitle, notificationType)
-    return await sendEmail({ to, subject: template.subject, html: template.html })
+    return await sendEmail({ 
+      to, 
+      subject: template.subject, 
+      html: template.html,
+      immediate,
+      maxAttempts: 2
+    })
   } catch (error) {
     console.error("Forum notification email failed:", error)
     throw error
@@ -287,11 +466,23 @@ export async function sendAdminLog(subject: string, html: string) {
   }
 }
 
+// -------------------- Queue Management --------------------
+export function getEmailQueueStatus() {
+  return emailQueue.getQueueStatus()
+}
+
+export function clearEmailQueue() {
+  emailQueue.stop()
+  // Note: This will stop the queue processing. Restart by creating a new instance if needed.
+  console.log("Email queue stopped")
+}
+
 // -------------------- Test Email --------------------
-export async function sendTestEmail(to: string) {
+export async function sendTestEmail(to: string, immediate = true) {
   return sendEmail({
     to,
     subject: "🧪 Test Email - Nazzel & Avionna",
     html: `<p>If you received this email, the system is working!</p>`,
+    immediate
   })
 }
