@@ -99,10 +99,15 @@ export async function POST(request: Request) {
       },
     })
 
-    await sendAdminLog(
-      "User login",
-      `<p>User <strong>${user.username}</strong> logged in.</p>`
-    )
+    // Send admin log
+    try {
+      await sendAdminLog(
+        "User login",
+        `<p>User <strong>${user.username}</strong> logged in.</p>`
+      )
+    } catch (e) {
+      console.warn("Admin log failed:", e)
+    }
     return response
   } catch (error) {
     console.error("Nazzel and Aviona Login error:", error)

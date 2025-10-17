@@ -5,6 +5,20 @@ const DEFAULT_FROM_EMAIL =
   process.env.EMAIL_FROM || process.env.NOREPLY_EMAIL || "no-reply@nazzelandavionna.site"
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "nazzelv.quinto@gmail.com"
 
+// -------------------- Environment Validation --------------------
+export function validateEmailConfig() {
+  const required = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS']
+  const missing = required.filter(key => !process.env[key])
+  
+  if (missing.length > 0) {
+    console.error("Missing required email environment variables:", missing)
+    return false
+  }
+  
+  console.log("Email configuration validated successfully")
+  return true
+}
+
 // -------------------- SMTP Transporter --------------------
 export const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
@@ -195,42 +209,82 @@ export async function sendEmail({
   html: string
   from?: string
 }) {
-  const info = await transporter.sendMail({
-    from,
-    to,
-    subject,
-    html,
-    envelope: { from: DEFAULT_FROM_EMAIL, to },
-    replyTo: DEFAULT_FROM_EMAIL,
-  })
-  return { success: true, messageId: info.messageId }
+  try {
+    // Verify transporter configuration
+    if (!validateEmailConfig()) {
+      throw new Error("SMTP credentials not configured properly")
+    }
+
+    const info = await transporter.sendMail({
+      from,
+      to,
+      subject,
+      html,
+      envelope: { from: DEFAULT_FROM_EMAIL, to },
+      replyTo: DEFAULT_FROM_EMAIL,
+    })
+    
+    console.log(`Email sent successfully to ${to}:`, info.messageId)
+    return { success: true, messageId: info.messageId }
+  } catch (error) {
+    console.error("Email sending failed:", error)
+    throw error
+  }
 }
 
 // -------------------- Convenience Send Functions --------------------
 export async function sendVerificationEmail(to: string, username: string, verificationCode: string) {
-  const template = emailTemplates.emailVerification(username, verificationCode)
-  return sendEmail({ to, subject: template.subject, html: template.html })
+  try {
+    const template = emailTemplates.emailVerification(username, verificationCode)
+    return await sendEmail({ to, subject: template.subject, html: template.html })
+  } catch (error) {
+    console.error("Verification email failed:", error)
+    throw error
+  }
 }
 
 export async function sendPasswordResetEmail(to: string, username: string, resetCode: string) {
-  const template = emailTemplates.passwordReset(username, resetCode)
-  return sendEmail({ to, subject: template.subject, html: template.html })
+  try {
+    const template = emailTemplates.passwordReset(username, resetCode)
+    return await sendEmail({ to, subject: template.subject, html: template.html })
+  } catch (error) {
+    console.error("Password reset email failed:", error)
+    throw error
+  }
 }
 
 export async function sendWelcomeEmail(to: string, username: string) {
-  const template = emailTemplates.welcomeMember(username)
-  return sendEmail({ to, subject: template.subject, html: template.html })
+  try {
+    const template = emailTemplates.welcomeMember(username)
+    return await sendEmail({ to, subject: template.subject, html: template.html })
+  } catch (error) {
+    console.error("Welcome email failed:", error)
+    throw error
+  }
 }
 
 export async function sendForumNotificationEmail(to: string, username: string, postTitle: string, notificationType: string) {
-  const template = emailTemplates.forumNotification(username, postTitle, notificationType)
-  return sendEmail({ to, subject: template.subject, html: template.html })
+  try {
+    const template = emailTemplates.forumNotification(username, postTitle, notificationType)
+    return await sendEmail({ to, subject: template.subject, html: template.html })
+  } catch (error) {
+    console.error("Forum notification email failed:", error)
+    throw error
+  }
 }
 
 // -------------------- Admin Log --------------------
 export async function sendAdminLog(subject: string, html: string) {
-  if (!ADMIN_EMAIL) return
-  return sendEmail({ to: ADMIN_EMAIL, subject, html })
+  if (!ADMIN_EMAIL) {
+    console.warn("Admin email not configured, skipping admin log")
+    return
+  }
+  try {
+    return await sendEmail({ to: ADMIN_EMAIL, subject, html })
+  } catch (error) {
+    console.error("Admin log email failed:", error)
+    throw error
+  }
 }
 
 // -------------------- Test Email --------------------

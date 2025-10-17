@@ -2,8 +2,7 @@
 import { NextResponse } from "next/server"
 import { storage } from "@/lib/db/storage"
 import { hashPassword } from "@/lib/auth/client-utils"
-import { sendAdminLog, emailTemplates, transporter } from "@/lib/email"
-import nodemailer from "nodemailer"
+import { sendAdminLog, sendPasswordResetEmail } from "@/lib/email"
 
 export async function POST(request: Request) {
   try {
@@ -55,18 +54,10 @@ export async function POST(request: Request) {
 
     // Send confirmation email to user
     try {
-      const mailOptions = {
-        from: process.env.EMAIL_FROM || process.env.NOREPLY_EMAIL || "no-reply@nazzelandavionna.site",
-        to: email,
-        subject: "✅ Password Reset Successful - Nazzel & Avionna",
-        html: emailTemplates.passwordReset(user.username, "Your password has been changed successfully!").html.replace(
-          "${resetCode}",
-          "✔️"
-        ),
-      }
-      await transporter.sendMail(mailOptions)
+      await sendPasswordResetEmail(email, user.username, "✔️ Password Reset Successful!")
+      console.log("Password reset confirmation email sent successfully")
     } catch (e) {
-      console.warn("Password reset confirmation email failed:", e)
+      console.error("Password reset confirmation email failed:", e)
     }
 
     // Admin log
