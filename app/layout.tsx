@@ -24,9 +24,65 @@ export const metadata: Metadata = {
   title: "Nazzel & Avionna | Our Love Story Forever",
   description:
     "Welcome to the official page of Nazzel and Avionna — a story of love, faith, and forever. Discover our journey together, filled with laughter, adventures, and unbreakable bond.",
-    generator: 'v0.app',
+  keywords: [
+    "Nazzel",
+    "Avionna", 
+    "love story",
+    "couple",
+    "relationship",
+    "romance",
+    "forever",
+    "together",
+    "nazzelandavionna",
+    "nazzel and avionna"
+  ],
+  authors: [{ name: "Nazzel & Avionna" }],
+  creator: "Nazzel & Avionna",
+  publisher: "Nazzel & Avionna",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  metadataBase: new URL('https://www.nazzelandavionna.site'),
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: "Nazzel & Avionna | Our Love Story Forever",
+    description: "Welcome to the official page of Nazzel and Avionna — a story of love, faith, and forever. Discover our journey together, filled with laughter, adventures, and unbreakable bond.",
+    url: 'https://www.nazzelandavionna.site',
+    siteName: 'Nazzel & Avionna',
+    images: [
+      {
+        url: '/romantic-couple-sitting-together-outdoors-warm-sun.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Nazzel and Avionna - Our Love Story',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: "Nazzel & Avionna | Our Love Story Forever",
+    description: "Welcome to the official page of Nazzel and Avionna — a story of love, faith, and forever.",
+    images: ['/romantic-couple-sitting-together-outdoors-warm-sun.jpg'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
   icons: {
-    icon: "/placeholder-logo.png", // ensures browsers don’t request /favicon.ico implicitly
+    icon: "/placeholder-logo.png",
     shortcut: "/placeholder-logo.png",
     apple: "/placeholder-logo.png",
   },

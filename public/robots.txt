@@ -1,0 +1,41 @@
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://www.nazzelandavionna.site/sitemap.xml
+
+# Allow all major search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /
+
+User-agent: YandexBot
+Allow: /
+
+# Disallow API routes and private areas
+Disallow: /api/
+Disallow: /account/
+Disallow: /profile/
+Disallow: /messages/
+Disallow: /couple-dashboard/
+
+# Allow public pages
+Allow: /home
+Allow: /about/
+Allow: /forum
+Allow: /gallery
+Allow: /legal/
+
+# Crawl delay (optional)
+Crawl-delay: 1
