@@ -51,15 +51,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Database unavailable" }, { status: 503 })
   }
 
+  // Send welcome email and admin log
   try {
-    await Promise.all([
-      sendWelcomeEmail(user.email, user.username),
-      sendAdminLog(
-        "Email verified",
-        `<p>User <strong>${user.username}</strong> verified their email.</p>`
-      ),
-    ])
-  } catch (_) {}
+    console.log(`Sending welcome email to ${user.email} for verified user ${user.username}`)
+    const welcomeResult = await sendWelcomeEmail(user.email, user.username)
+    console.log("Welcome email result:", welcomeResult)
+  } catch (e) {
+    console.error("Welcome email failed:", e)
+  }
+
+  try {
+    console.log(`Sending admin log for verified user ${user.username}`)
+    const adminLogResult = await sendAdminLog(
+      "Email verified",
+      `<p>User <strong>${user.username}</strong> verified their email.</p>`
+    )
+    console.log("Admin log result:", adminLogResult)
+  } catch (e) {
+    console.error("Admin log failed:", e)
+  }
 
     return NextResponse.json({
       success: true,

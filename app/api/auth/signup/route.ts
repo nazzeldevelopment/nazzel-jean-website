@@ -107,9 +107,12 @@ export async function POST(request: Request) {
 
     // Send verification email via SMTP
     try {
-      await sendVerificationEmail(email, username, verificationCode)
+      console.log(`Sending verification email to ${email} for user ${username}`)
+      const emailResult = await sendVerificationEmail(email, username, verificationCode)
+      console.log("Verification email result:", emailResult)
     } catch (e) {
-      console.warn("Signup verification email failed:", e)
+      console.error("Signup verification email failed:", e)
+      // Don't fail the signup if email fails, but log it
     }
 
     // Admin log

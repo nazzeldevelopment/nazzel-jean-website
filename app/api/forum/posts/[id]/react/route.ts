@@ -55,10 +55,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
     await storage.savePost(post)
 
     // Admin log
-    await sendAdminLog(
-      "Post reaction",
-      `<p>User <strong>${user.username}</strong> ${existingReaction ? "removed" : "added"} a reaction (${emoji}) on post "${post.title}".</p>`
-    )
+    try {
+      console.log(`Sending admin log for post reaction by ${user.username}`)
+      const adminLogResult = await sendAdminLog(
+        "Post reaction",
+        `<p>User <strong>${user.username}</strong> ${existingReaction ? "removed" : "added"} a reaction (${emoji}) on post "${post.title}".</p>`
+      )
+      console.log("✅ Admin log sent successfully:", adminLogResult)
+    } catch (e) {
+      console.error("❌ Admin log failed:", e)
+    }
 
     return NextResponse.json({ success: true, reactions: post.reactions })
   } catch (error) {

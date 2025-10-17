@@ -144,22 +144,16 @@ export const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER || "",
     pass: process.env.SMTP_PASS || "",
   },
-  // Optimized settings for Cloudflare email routing
-  pool: true, // Use connection pooling
-  maxConnections: 5, // Maximum number of connections in the pool
-  maxMessages: 100, // Maximum number of messages to send per connection
-  rateLimit: 10, // Maximum number of messages to send per second
+  // Basic settings for reliable delivery
+  pool: false, // Disable pooling for better reliability
   // Connection timeout settings
-  connectionTimeout: 60000, // 60 seconds
-  greetingTimeout: 30000, // 30 seconds
-  socketTimeout: 60000, // 60 seconds
-  // Retry settings
-  retryDelay: 2000, // 2 seconds between retries
-  retryAttempts: 3, // Maximum number of retry attempts
+  connectionTimeout: 30000, // 30 seconds
+  greetingTimeout: 15000, // 15 seconds
+  socketTimeout: 30000, // 30 seconds
   // TLS settings for better compatibility
   tls: {
-    rejectUnauthorized: false, // For Cloudflare email routing compatibility
-    ciphers: 'SSLv3'
+    rejectUnauthorized: false, // For custom domain compatibility
+    ciphers: 'TLSv1.2'
   },
   // Debug mode for troubleshooting
   debug: process.env.NODE_ENV === 'development',
@@ -339,7 +333,7 @@ export async function sendEmail({
   subject,
   html,
   from = `"Nazzel & Avionna" <${DEFAULT_FROM_EMAIL}>`,
-  immediate = false,
+  immediate = true, // Default to immediate sending
   maxAttempts = 3
 }: {
   to: string
@@ -352,21 +346,36 @@ export async function sendEmail({
   try {
     // Verify transporter configuration
     if (!validateEmailConfig()) {
+      console.error("Email configuration validation failed")
       throw new Error("SMTP credentials not configured properly")
     }
 
+    console.log(`Attempting to send email to ${to} from ${from}`)
+
     if (immediate) {
       // Send immediately without queuing
-      const info = await transporter.sendMail({
-        from,
-        to,
-        subject,
-        html,
-        envelope: { from: DEFAULT_FROM_EMAIL, to },
+      const mailOptions = {
+        from: from,
+        to: to,
+        subject: subject,
+        html: html,
+        envelope: { 
+          from: DEFAULT_FROM_EMAIL, 
+          to: to 
+        },
         replyTo: DEFAULT_FROM_EMAIL,
+      }
+
+      console.log("Mail options:", {
+        from: mailOptions.from,
+        to: mailOptions.to,
+        subject: mailOptions.subject,
+        envelope: mailOptions.envelope
       })
+
+      const info = await transporter.sendMail(mailOptions)
       
-      console.log(`Email sent immediately to ${to}:`, info.messageId)
+      console.log(`✅ Email sent successfully to ${to}:`, info.messageId)
       return { success: true, messageId: info.messageId }
     } else {
       // Add to queue for reliable delivery
@@ -378,11 +387,15 @@ export async function sendEmail({
         maxAttempts
       })
       
-      console.log(`Email queued for delivery to ${to}`)
+      console.log(`📧 Email queued for delivery to ${to}`)
       return { success: true, messageId: "queued" }
     }
   } catch (error) {
-    console.error("Email sending failed:", error)
+    console.error("❌ Email sending failed:", error)
+    console.error("Error details:", {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    })
     throw error
   }
 }

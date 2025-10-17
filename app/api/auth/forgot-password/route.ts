@@ -56,21 +56,24 @@ export async function POST(request: Request) {
 
     // Send reset email
     try {
+      console.log(`Sending password reset email to ${email} for user ${user.username}`)
       const result = await sendPasswordResetEmail(email, user.username, resetCode)
-      console.log("Password reset email sent successfully:", result)
+      console.log("✅ Password reset email sent successfully:", result)
     } catch (e) {
-      console.error("Password reset email failed to send:", e)
+      console.error("❌ Password reset email failed to send:", e)
       // Don't fail the request if email fails
     }
 
     // Admin log
     try {
-      await sendAdminLog(
+      console.log(`Sending admin log for password reset request from ${email}`)
+      const adminLogResult = await sendAdminLog(
         "Password reset requested",
         `<p>Reset requested for <strong>${email}</strong>.</p>`
       )
+      console.log("✅ Admin log sent successfully:", adminLogResult)
     } catch (e) {
-      console.warn("Admin log failed:", e)
+      console.error("❌ Admin log failed:", e)
     }
 
     return NextResponse.json({

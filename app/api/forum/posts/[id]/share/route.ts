@@ -14,10 +14,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
     post.shares = (post.shares || 0) + 1
     await storage.savePost(post)
 
-    await sendAdminLog(
-      "Post shared",
-      `<p>Post titled "${post.title}" was shared. Total shares: ${post.shares}.</p>`
-    )
+    try {
+      console.log(`Sending admin log for post share: ${post.title}`)
+      const adminLogResult = await sendAdminLog(
+        "Post shared",
+        `<p>Post titled "${post.title}" was shared. Total shares: ${post.shares}.</p>`
+      )
+      console.log("✅ Admin log sent successfully:", adminLogResult)
+    } catch (e) {
+      console.error("❌ Admin log failed:", e)
+    }
 
     return NextResponse.json({ success: true, shares: post.shares })
   } catch (error) {

@@ -101,12 +101,14 @@ export async function POST(request: Request) {
 
     // Send admin log
     try {
-      await sendAdminLog(
+      console.log(`Sending admin log for user login: ${user.username}`)
+      const adminLogResult = await sendAdminLog(
         "User login",
         `<p>User <strong>${user.username}</strong> logged in.</p>`
       )
+      console.log("✅ Admin log sent successfully:", adminLogResult)
     } catch (e) {
-      console.warn("Admin log failed:", e)
+      console.error("❌ Admin log failed:", e)
     }
     return response
   } catch (error) {

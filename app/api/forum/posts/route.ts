@@ -71,11 +71,15 @@ export async function POST(request: Request) {
 
     // Admin log
     try {
-      await sendAdminLog(
+      console.log(`Sending admin log for forum post creation by ${user.username}`)
+      const adminLogResult = await sendAdminLog(
         "Forum post created",
         `<p>User <strong>${user.username}</strong> created a post titled "${title}".</p>`
       )
-    } catch (_) {}
+      console.log("✅ Admin log sent successfully:", adminLogResult)
+    } catch (e) {
+      console.error("❌ Admin log failed:", e)
+    }
 
     return NextResponse.json({ success: true, post })
   } catch (error) {
