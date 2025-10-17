@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react"
 import { checkPasswordStrength } from "@/lib/auth/client-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ReCaptcha, useReCaptcha } from "@/components/recaptcha"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -31,7 +32,17 @@ export default function SignupPage() {
   const [passwordStrength, setPasswordStrength] = useState({ score: 0, feedback: [] as string[] })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [recaptchaVerified, setRecaptchaVerified] = useState(false)
+  
+  // reCAPTCHA hook
+  const {
+    isVerified: recaptchaVerified,
+    token: recaptchaToken,
+    error: recaptchaError,
+    handleVerify,
+    handleExpire,
+    handleError,
+    reset: resetRecaptcha
+  } = useReCaptcha()
 
   const handlePasswordChange = (password: string) => {
     setFormData({ ...formData, password })
@@ -81,8 +92,13 @@ export default function SignupPage() {
       return
     }
 
-    if (!recaptchaVerified) {
-      setError("Please verify that you are not a robot")
+    if (!recaptchaVerified || !recaptchaToken) {
+      setError("Please complete the reCAPTCHA verification")
+      return
+    }
+
+    if (recaptchaError) {
+      setError(recaptchaError)
       return
     }
 
@@ -92,7 +108,10 @@ export default function SignupPage() {
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          recaptchaToken
+        }),
       })
 
       const data = await response.json()
@@ -100,6 +119,7 @@ export default function SignupPage() {
       if (!response.ok) {
         setError(data.error || "Signup failed")
         setLoading(false)
+        resetRecaptcha() // Reset reCAPTCHA on error
         return
       }
 
@@ -108,6 +128,7 @@ export default function SignupPage() {
     } catch (err) {
       setError("An error occurred. Please try again.")
       setLoading(false)
+      resetRecaptcha() // Reset reCAPTCHA on error
     }
   }
 
@@ -265,16 +286,19 @@ export default function SignupPage() {
             </div>
 
             <div className="space-y-3 pt-2">
-              <div className="flex items-start space-x-2">
-                <Checkbox
-                  id="recaptcha"
-                  checked={recaptchaVerified}
-                  onCheckedChange={(checked) => setRecaptchaVerified(checked as boolean)}
-                  className="mt-1"
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Security Verification</Label>
+                <ReCaptcha
+                  onVerify={handleVerify}
+                  onExpire={handleExpire}
+                  onError={handleError}
+                  theme="light"
+                  size="normal"
+                  className="flex justify-center"
                 />
-                <Label htmlFor="recaptcha" className="text-sm font-medium leading-relaxed cursor-pointer">
-                  I'm not a robot (ReCaptcha verification)
-                </Label>
+                {recaptchaError && (
+                  <p className="text-xs text-destructive">{recaptchaError}</p>
+                )}
               </div>
 
               <div className="flex items-start space-x-2">

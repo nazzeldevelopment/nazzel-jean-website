@@ -4,17 +4,52 @@ import { storage } from "@/lib/db/storage"
 import { hashPassword, generateOTP, calculateAge } from "@/lib/auth/client-utils"
 import { sendVerificationEmail, sendAdminLog } from "@/lib/email"
 
+// reCAPTCHA verification function
+async function verifyRecaptcha(token: string): Promise<boolean> {
+  try {
+    const secretKey = process.env.RECAPTCHA_SECRET_KEY
+    if (!secretKey) {
+      console.warn("RECAPTCHA_SECRET_KEY not configured")
+      return true // Allow signup if reCAPTCHA is not configured
+    }
+
+    const response = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: `secret=${secretKey}&response=${token}`,
+    })
+
+    const data = await response.json()
+    return data.success === true
+  } catch (error) {
+    console.error("reCAPTCHA verification failed:", error)
+    return false
+  }
+}
+
 export async function POST(request: Request) {
   try {
     if (!process.env.MONGODB_URI) {
       return NextResponse.json({ error: "Database not configured" }, { status: 503 })
     }
     const body = await request.json()
-    const { username, email, password, dateOfBirth, relationshipStatus, agreedToTerms } = body
+    const { username, email, password, dateOfBirth, relationshipStatus, agreedToTerms, recaptchaToken } = body
 
     // Validation
     if (!username || !email || !password || !dateOfBirth || !relationshipStatus || !agreedToTerms) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
+    }
+
+    // reCAPTCHA verification
+    if (recaptchaToken) {
+      const isRecaptchaValid = await verifyRecaptcha(recaptchaToken)
+      if (!isRecaptchaValid) {
+        return NextResponse.json({ error: "reCAPTCHA verification failed" }, { status: 400 })
+      }
+    } else {
+      return NextResponse.json({ error: "reCAPTCHA verification required" }, { status: 400 })
     }
 
     // Age verification
