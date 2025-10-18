@@ -1,5 +1,6 @@
 # Change Logs
 
+<<<<<<< HEAD
 ## Email Service Migration to Resend - October 16, 2025
 
 ### Summary
@@ -60,6 +61,9 @@ ADMIN_EMAIL=nazzelv.quinto@gmail.com
 ---
 
 ## Email System Redesign - February 2024
+=======
+## Email System Redesign - October 2025
+>>>>>>> 71647c85cb1916443fee9b7bab62160e7055c25b
 
 ### Summary
 
