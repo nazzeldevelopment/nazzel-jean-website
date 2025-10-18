@@ -1,6 +1,6 @@
 # Change Logs
 
-## Email System Redesign - February 2024
+## Email System Redesign - October 2025
 
 ### Summary
 
