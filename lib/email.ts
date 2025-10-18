@@ -19,122 +19,6 @@ export function validateEmailConfig() {
   return true
 }
 
-// -------------------- Email Queue System --------------------
-interface EmailQueueItem {
-  id: string
-  to: string
-  subject: string
-  html: string
-  from?: string
-  attempts: number
-  maxAttempts: number
-  createdAt: Date
-  nextRetryAt: Date
-}
-
-class EmailQueue {
-  private queue: EmailQueueItem[] = []
-  private processing = false
-  private intervalId: NodeJS.Timeout | null = null
-
-  constructor() {
-    this.startProcessing()
-  }
-
-  add(item: Omit<EmailQueueItem, 'id' | 'attempts' | 'createdAt' | 'nextRetryAt'>) {
-    const queueItem: EmailQueueItem = {
-      ...item,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      attempts: 0,
-      maxAttempts: item.maxAttempts || 3,
-      createdAt: new Date(),
-      nextRetryAt: new Date()
-    }
-    
-    this.queue.push(queueItem)
-    console.log(`Email queued: ${queueItem.subject} to ${queueItem.to}`)
-  }
-
-  private async processQueue() {
-    if (this.processing || this.queue.length === 0) return
-
-    this.processing = true
-    const now = new Date()
-    const readyItems = this.queue.filter(item => item.nextRetryAt <= now)
-
-    for (const item of readyItems) {
-      try {
-        await this.sendEmail(item)
-        this.removeFromQueue(item.id)
-        console.log(`Email sent successfully: ${item.subject} to ${item.to}`)
-      } catch (error) {
-        console.error(`Email send failed (attempt ${item.attempts + 1}):`, error)
-        item.attempts++
-        
-        if (item.attempts >= item.maxAttempts) {
-          console.error(`Email permanently failed after ${item.maxAttempts} attempts: ${item.subject}`)
-          this.removeFromQueue(item.id)
-        } else {
-          // Exponential backoff: 2^attempts minutes
-          const delayMinutes = Math.pow(2, item.attempts)
-          item.nextRetryAt = new Date(now.getTime() + delayMinutes * 60 * 1000)
-          console.log(`Email will retry in ${delayMinutes} minutes: ${item.subject}`)
-        }
-      }
-    }
-
-    this.processing = false
-  }
-
-  private async sendEmail(item: EmailQueueItem) {
-    const info = await transporter.sendMail({
-      from: item.from || `"Nazzel & Avionna" <${DEFAULT_FROM_EMAIL}>`,
-      to: item.to,
-      subject: item.subject,
-      html: item.html,
-      envelope: { from: DEFAULT_FROM_EMAIL, to: item.to },
-      replyTo: DEFAULT_FROM_EMAIL,
-    })
-    
-    return { success: true, messageId: info.messageId }
-  }
-
-  private removeFromQueue(id: string) {
-    this.queue = this.queue.filter(item => item.id !== id)
-  }
-
-  private startProcessing() {
-    // Process queue every 30 seconds
-    this.intervalId = setInterval(() => {
-      this.processQueue()
-    }, 30000)
-  }
-
-  stop() {
-    if (this.intervalId) {
-      clearInterval(this.intervalId)
-      this.intervalId = null
-    }
-  }
-
-  getQueueStatus() {
-    return {
-      total: this.queue.length,
-      processing: this.processing,
-      items: this.queue.map(item => ({
-        id: item.id,
-        to: item.to,
-        subject: item.subject,
-        attempts: item.attempts,
-        nextRetryAt: item.nextRetryAt
-      }))
-    }
-  }
-}
-
-// Global email queue instance
-export const emailQueue = new EmailQueue()
-
 // -------------------- SMTP Transporter --------------------
 export const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
@@ -144,8 +28,6 @@ export const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER || "",
     pass: process.env.SMTP_PASS || "",
   },
-  // Basic settings for reliable delivery
-  pool: false, // Disable pooling for better reliability
   // Connection timeout settings
   connectionTimeout: 30000, // 30 seconds
   greetingTimeout: 15000, // 15 seconds
@@ -172,30 +54,183 @@ export const emailTemplates = {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Email Verification</title>
         <style>
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin:0; padding:0; background:linear-gradient(135deg,#ffe6eb 0%,#fff8f9 100%);}
-          .container { max-width:600px; margin:0 auto; padding:20px; }
-          .header { text-align:center; padding:30px 0; background:linear-gradient(135deg,#ff6b9d,#c44569); border-radius:15px; margin-bottom:30px; }
-          .header h1 { color:white; margin:0; font-size:28px; font-weight:300; }
-          .content { background:white; padding:40px; border-radius:15px; box-shadow:0 10px 30px rgba(0,0,0,0.1);}
-          .verification-code { background:linear-gradient(135deg,#ff6b9d,#c44569); color:white; padding:20px; border-radius:10px; text-align:center; margin:30px 0; font-size:24px; font-weight:bold; letter-spacing:3px; }
-          .btn { display:inline-block; padding:15px 30px; font-size:16px; font-weight:bold; color:white; text-decoration:none; border-radius:8px; background:linear-gradient(135deg,#ff6b9d,#c44569); margin:20px 0; }
-          .footer { text-align:center; margin-top:30px; color:#666; font-size:14px; }
+          @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+          
+          body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+            color: #333333;
+            line-height: 1.6;
+          }
+          
+          .container {
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 0;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          }
+          
+          .header {
+            background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+            padding: 35px 0;
+            text-align: center;
+          }
+          
+          .header img {
+            width: 180px;
+            height: auto;
+          }
+          
+          .header h1 {
+            color: white;
+            margin: 15px 0 0;
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+          }
+          
+          .content {
+            padding: 40px;
+            color: #444;
+          }
+          
+          h2 {
+            color: #c44569;
+            font-size: 24px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-weight: 600;
+          }
+          
+          p {
+            margin-bottom: 20px;
+            font-size: 16px;
+            color: #555;
+          }
+          
+          .verification-code {
+            background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 30px 0;
+            font-size: 28px;
+            font-weight: bold;
+            letter-spacing: 5px;
+            box-shadow: 0 4px 15px rgba(196, 69, 105, 0.3);
+          }
+          
+          .btn-container {
+            text-align: center;
+            margin: 35px 0;
+          }
+          
+          .btn {
+            display: inline-block;
+            padding: 15px 40px;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+            box-shadow: 0 4px 15px rgba(196, 69, 105, 0.3);
+            transition: all 0.3s ease;
+          }
+          
+          .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(196, 69, 105, 0.4);
+          }
+          
+          .note {
+            background-color: #f8f9fa;
+            border-left: 4px solid #c44569;
+            padding: 15px;
+            margin: 30px 0;
+            font-size: 14px;
+            color: #666;
+            border-radius: 4px;
+          }
+          
+          .signature {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-style: italic;
+            color: #777;
+          }
+          
+          .signature strong {
+            color: #c44569;
+            font-style: normal;
+          }
+          
+          .footer {
+            background-color: #f8f9fa;
+            text-align: center;
+            padding: 30px;
+            color: #999;
+            font-size: 14px;
+            border-top: 1px solid #eee;
+          }
+          
+          .social-links {
+            margin: 20px 0;
+          }
+          
+          .social-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #c44569;
+            text-decoration: none;
+          }
+          
+          .copyright {
+            margin-top: 20px;
+            font-size: 13px;
+            color: #aaa;
+          }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="header"><h1>💕 Welcome to Our Love Story 💕</h1></div>
+          <div class="header">
+            <h1>💕 Nazzel & Avionna 💕</h1>
+          </div>
+          
           <div class="content">
             <h2>Hello ${username}!</h2>
-            <p>Verify your email using the code below:</p>
+            
+            <p>Thank you for joining our love story! To complete your registration and access all features, please verify your email address using the verification code below:</p>
+            
             <div class="verification-code">${verificationCode}</div>
-            <a href="https://www.nazzelandavionna.site/verify?code=${verificationCode}" class="btn">Verify Now</a>
-            <p>If you didn't create an account, ignore this email.</p>
-            <p>With love,<br><strong>Nazzel & Avionna</strong> 💕</p>
+            
+            <div class="btn-container">
+              <a href="https://www.nazzelandavionna.site/account/verify-email?code=${verificationCode}" class="btn">Verify Email Now</a>
+            </div>
+            
+            <div class="note">
+              <strong>Note:</strong> This verification code will expire in 24 hours. If you did not create an account with us, please disregard this email.
+            </div>
+            
+            <p>Once verified, you'll have full access to our community features, including our forum, gallery, and more!</p>
+            
+            <div class="signature">
+              With love,<br>
+              <strong>Nazzel & Avionna</strong> 💕
+            </div>
           </div>
+          
           <div class="footer">
             <p>This email was sent from ${DEFAULT_FROM_EMAIL}</p>
-            <p>© 2025 Nazzel & Avionna's Love Story. All rights reserved.</p>
+            <div class="copyright">© 2025 Nazzel & Avionna's Love Story. All rights reserved.</div>
           </div>
         </div>
       </body>
@@ -213,112 +248,183 @@ export const emailTemplates = {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Password Reset</title>
         <style>
-          body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; margin:0; padding:0; background:linear-gradient(135deg,#ffe6eb 0%,#fff8f9 100%);}
-          .container { max-width:600px; margin:0 auto; padding:20px; }
-          .header { text-align:center; padding:30px 0; background:linear-gradient(135deg,#ff6b9d,#c44569); border-radius:15px; margin-bottom:30px; }
-          .header h1 { color:white; margin:0; font-size:28px; font-weight:300; }
-          .content { background:white; padding:40px; border-radius:15px; box-shadow:0 10px 30px rgba(0,0,0,0.1); }
-          .reset-code { background:linear-gradient(135deg,#ff6b9d,#c44569); color:white; padding:20px; border-radius:10px; text-align:center; margin:30px 0; font-size:24px; font-weight:bold; letter-spacing:3px; }
-          .btn { display:inline-block; padding:15px 30px; font-size:16px; font-weight:bold; color:white; text-decoration:none; border-radius:8px; background:linear-gradient(135deg,#ff6b9d,#c44569); margin:20px 0; }
-          .warning { background:#fff3cd; border:1px solid #ffeaa7; padding:15px; border-radius:8px; margin:20px 0; }
-          .footer { text-align:center; margin-top:30px; color:#666; font-size:14px; }
+          @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+          
+          body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+            color: #333333;
+            line-height: 1.6;
+          }
+          
+          .container {
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 0;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          }
+          
+          .header {
+            background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+            padding: 35px 0;
+            text-align: center;
+          }
+          
+          .header img {
+            width: 180px;
+            height: auto;
+          }
+          
+          .header h1 {
+            color: white;
+            margin: 15px 0 0;
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+          }
+          
+          .content {
+            padding: 40px;
+            color: #444;
+          }
+          
+          h2 {
+            color: #c44569;
+            font-size: 24px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-weight: 600;
+          }
+          
+          p {
+            margin-bottom: 20px;
+            font-size: 16px;
+            color: #555;
+          }
+          
+          .reset-code {
+            background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 30px 0;
+            font-size: 28px;
+            font-weight: bold;
+            letter-spacing: 5px;
+            box-shadow: 0 4px 15px rgba(196, 69, 105, 0.3);
+          }
+          
+          .btn-container {
+            text-align: center;
+            margin: 35px 0;
+          }
+          
+          .btn {
+            display: inline-block;
+            padding: 15px 40px;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+            box-shadow: 0 4px 15px rgba(196, 69, 105, 0.3);
+            transition: all 0.3s ease;
+          }
+          
+          .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(196, 69, 105, 0.4);
+          }
+          
+          .warning {
+            background-color: #fff8e1;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 30px 0;
+            font-size: 14px;
+            color: #856404;
+            border-radius: 4px;
+          }
+          
+          .signature {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-style: italic;
+            color: #777;
+          }
+          
+          .signature strong {
+            color: #c44569;
+            font-style: normal;
+          }
+          
+          .footer {
+            background-color: #f8f9fa;
+            text-align: center;
+            padding: 30px;
+            color: #999;
+            font-size: 14px;
+            border-top: 1px solid #eee;
+          }
+          
+          .social-links {
+            margin: 20px 0;
+          }
+          
+          .social-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #c44569;
+            text-decoration: none;
+          }
+          
+          .copyright {
+            margin-top: 20px;
+            font-size: 13px;
+            color: #aaa;
+          }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="header"><h1>🔐 Password Reset</h1></div>
+          <div class="header">
+            <h1>🔐 Password Reset</h1>
+          </div>
+          
           <div class="content">
             <h2>Hello ${username}!</h2>
-            <p>Reset your password using the code below:</p>
+            
+            <p>We received a request to reset your password. Use the code below to create a new password:</p>
+            
             <div class="reset-code">${resetCode}</div>
-            <a href="https://www.nazzelandavionna.site/reset-password?code=${resetCode}" class="btn">Reset Password</a>
-            <div class="warning">⚠️ Code expires in 1 hour. Ignore if you didn't request this.</div>
-            <p>With love,<br><strong>Nazzel & Avionna</strong> 💕</p>
-          </div>
-          <div class="footer">
-            <p>This email was sent from ${DEFAULT_FROM_EMAIL}</p>
-            <p>© 2025 Nazzel & Avionna's Love Story. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
-  }),
-
-  welcomeMember: (username: string) => ({
-    subject: "🎉 Welcome to Our Community!",
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome Member</title>
-        <style>
-          body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; margin:0; padding:0; background:linear-gradient(135deg,#ffe6eb 0%,#fff8f9 100%);}
-          .container { max-width:600px; margin:0 auto; padding:20px; }
-          .header { text-align:center; padding:30px 0; background:linear-gradient(135deg,#ff6b9d,#c44569); border-radius:15px; margin-bottom:30px; }
-          .header h1 { color:white; margin:0; font-size:28px; font-weight:300; }
-          .content { background:white; padding:40px; border-radius:15px; box-shadow:0 10px 30px rgba(0,0,0,0.1); }
-          .btn { display:inline-block; padding:15px 30px; font-size:16px; font-weight:bold; color:white; text-decoration:none; border-radius:8px; background:linear-gradient(135deg,#ff6b9d,#c44569); margin:20px 0; }
-          .footer { text-align:center; margin-top:30px; color:#666; font-size:14px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header"><h1>🎉 Congratulations!</h1></div>
-          <div class="content">
-            <h2>Hello ${username}!</h2>
-            <p>Your email is verified. Access all features now!</p>
-            <a href="https://www.nazzelandavionna.site/forum" class="btn">Visit Forum</a>
-            <p>With love,<br><strong>Nazzel & Avionna</strong> 💕</p>
-          </div>
-          <div class="footer">
-            <p>This email was sent from ${DEFAULT_FROM_EMAIL}</p>
-            <p>© 2025 Nazzel & Avionna's Love Story. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
-  }),
-
-  forumNotification: (username: string, postTitle: string, notificationType: string) => ({
-    subject: `🔔 New Activity in Forum - ${postTitle}`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Forum Notification</title>
-        <style>
-          body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; margin:0; padding:0; background:linear-gradient(135deg,#ffe6eb 0%,#fff8f9 100%);}
-          .container { max-width:600px; margin:0 auto; padding:20px; }
-          .header { text-align:center; padding:30px 0; background:linear-gradient(135deg,#ff6b9d,#c44569); border-radius:15px; margin-bottom:30px; }
-          .header h1 { color:white; margin:0; font-size:28px; font-weight:300; }
-          .content { background:white; padding:40px; border-radius:15px; box-shadow:0 10px 30px rgba(0,0,0,0.1); }
-          .notification { background:#e8f5e8; border:1px solid #4caf50; padding:20px; border-radius:10px; margin:20px 0; }
-          .btn { display:inline-block; padding:15px 30px; font-size:16px; font-weight:bold; color:white; text-decoration:none; border-radius:8px; background:linear-gradient(135deg,#ff6b9d,#c44569); margin:20px 0; }
-          .footer { text-align:center; margin-top:30px; color:#666; font-size:14px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header"><h1>🔔 Forum Activity</h1></div>
-          <div class="content">
-            <h2>Hello ${username}!</h2>
-            <p>There's new activity in our forum:</p>
-            <div class="notification">
-              <h3>${notificationType}</h3>
-              <p><strong>Post:</strong> ${postTitle}</p>
+            
+            <div class="btn-container">
+              <a href="https://www.nazzelandavionna.site/account/reset-password?code=${resetCode}" class="btn">Reset Password</a>
             </div>
-            <a href="https://www.nazzelandavionna.site/forum" class="btn">View Forum</a>
-            <p>With love,<br><strong>Nazzel & Avionna</strong> 💕</p>
+            
+            <div class="warning">
+              <strong>Important:</strong> This reset code will expire in 1 hour for security reasons. If you did not request a password reset, please ignore this email or contact support if you have concerns.
+            </div>
+            
+            <p>For security reasons, please create a strong password that you don't use on other websites.</p>
+            
+            <div class="signature">
+              With love,<br>
+              <strong>Nazzel & Avionna</strong> 💕
+            </div>
           </div>
+          
           <div class="footer">
             <p>This email was sent from ${DEFAULT_FROM_EMAIL}</p>
-            <p>© 2025 Nazzel & Avionna's Love Story. All rights reserved.</p>
+            <div class="copyright">© 2025 Nazzel & Avionna's Love Story. All rights reserved.</div>
           </div>
         </div>
       </body>
@@ -332,16 +438,12 @@ export async function sendEmail({
   to,
   subject,
   html,
-  from = `"Nazzel & Avionna" <${DEFAULT_FROM_EMAIL}>`,
-  immediate = true, // Default to immediate sending
-  maxAttempts = 3
+  from = `"Nazzel & Avionna" <${DEFAULT_FROM_EMAIL}>`
 }: {
   to: string
   subject: string
   html: string
   from?: string
-  immediate?: boolean
-  maxAttempts?: number
 }) {
   try {
     // Verify transporter configuration
@@ -352,44 +454,30 @@ export async function sendEmail({
 
     console.log(`Attempting to send email to ${to} from ${from}`)
 
-    if (immediate) {
-      // Send immediately without queuing
-      const mailOptions = {
-        from: from,
-        to: to,
-        subject: subject,
-        html: html,
-        envelope: { 
-          from: DEFAULT_FROM_EMAIL, 
-          to: to 
-        },
-        replyTo: DEFAULT_FROM_EMAIL,
-      }
-
-      console.log("Mail options:", {
-        from: mailOptions.from,
-        to: mailOptions.to,
-        subject: mailOptions.subject,
-        envelope: mailOptions.envelope
-      })
-
-      const info = await transporter.sendMail(mailOptions)
-      
-      console.log(`✅ Email sent successfully to ${to}:`, info.messageId)
-      return { success: true, messageId: info.messageId }
-    } else {
-      // Add to queue for reliable delivery
-      emailQueue.add({
-        to,
-        subject,
-        html,
-        from,
-        maxAttempts
-      })
-      
-      console.log(`📧 Email queued for delivery to ${to}`)
-      return { success: true, messageId: "queued" }
+    // Send email
+    const mailOptions = {
+      from: from,
+      to: to,
+      subject: subject,
+      html: html,
+      envelope: { 
+        from: DEFAULT_FROM_EMAIL, 
+        to: to 
+      },
+      replyTo: DEFAULT_FROM_EMAIL,
     }
+
+    console.log("Mail options:", {
+      from: mailOptions.from,
+      to: mailOptions.to,
+      subject: mailOptions.subject,
+      envelope: mailOptions.envelope
+    })
+
+    const info = await transporter.sendMail(mailOptions)
+    
+    console.log(`✅ Email sent successfully to ${to}:`, info.messageId)
+    return { success: true, messageId: info.messageId }
   } catch (error) {
     console.error("❌ Email sending failed:", error)
     console.error("Error details:", {
@@ -401,15 +489,13 @@ export async function sendEmail({
 }
 
 // -------------------- Convenience Send Functions --------------------
-export async function sendVerificationEmail(to: string, username: string, verificationCode: string, immediate = true) {
+export async function sendVerificationEmail(to: string, username: string, verificationCode: string) {
   try {
     const template = emailTemplates.emailVerification(username, verificationCode)
     return await sendEmail({ 
       to, 
       subject: template.subject, 
-      html: template.html,
-      immediate,
-      maxAttempts: 5 // More attempts for critical emails
+      html: template.html
     })
   } catch (error) {
     console.error("Verification email failed:", error)
@@ -417,50 +503,16 @@ export async function sendVerificationEmail(to: string, username: string, verifi
   }
 }
 
-export async function sendPasswordResetEmail(to: string, username: string, resetCode: string, immediate = true) {
+export async function sendPasswordResetEmail(to: string, username: string, resetCode: string) {
   try {
     const template = emailTemplates.passwordReset(username, resetCode)
     return await sendEmail({ 
       to, 
       subject: template.subject, 
-      html: template.html,
-      immediate,
-      maxAttempts: 5 // More attempts for critical emails
+      html: template.html
     })
   } catch (error) {
     console.error("Password reset email failed:", error)
-    throw error
-  }
-}
-
-export async function sendWelcomeEmail(to: string, username: string, immediate = false) {
-  try {
-    const template = emailTemplates.welcomeMember(username)
-    return await sendEmail({ 
-      to, 
-      subject: template.subject, 
-      html: template.html,
-      immediate,
-      maxAttempts: 3
-    })
-  } catch (error) {
-    console.error("Welcome email failed:", error)
-    throw error
-  }
-}
-
-export async function sendForumNotificationEmail(to: string, username: string, postTitle: string, notificationType: string, immediate = false) {
-  try {
-    const template = emailTemplates.forumNotification(username, postTitle, notificationType)
-    return await sendEmail({ 
-      to, 
-      subject: template.subject, 
-      html: template.html,
-      immediate,
-      maxAttempts: 2
-    })
-  } catch (error) {
-    console.error("Forum notification email failed:", error)
     throw error
   }
 }
@@ -479,23 +531,116 @@ export async function sendAdminLog(subject: string, html: string) {
   }
 }
 
-// -------------------- Queue Management --------------------
-export function getEmailQueueStatus() {
-  return emailQueue.getQueueStatus()
-}
-
-export function clearEmailQueue() {
-  emailQueue.stop()
-  // Note: This will stop the queue processing. Restart by creating a new instance if needed.
-  console.log("Email queue stopped")
-}
-
 // -------------------- Test Email --------------------
-export async function sendTestEmail(to: string, immediate = true) {
+export async function sendTestEmail(to: string) {
   return sendEmail({
     to,
     subject: "🧪 Test Email - Nazzel & Avionna",
-    html: `<p>If you received this email, the system is working!</p>`,
-    immediate
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Test Email</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+          
+          body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+            color: #333333;
+            line-height: 1.6;
+          }
+          
+          .container {
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 0;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          }
+          
+          .header {
+            background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+            padding: 35px 0;
+            text-align: center;
+          }
+          
+          .header h1 {
+            color: white;
+            margin: 15px 0 0;
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+          }
+          
+          .content {
+            padding: 40px;
+            color: #444;
+            text-align: center;
+          }
+          
+          h2 {
+            color: #c44569;
+            font-size: 24px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-weight: 600;
+          }
+          
+          p {
+            margin-bottom: 20px;
+            font-size: 16px;
+            color: #555;
+          }
+          
+          .success-icon {
+            font-size: 48px;
+            margin: 20px 0;
+            color: #4caf50;
+          }
+          
+          .footer {
+            background-color: #f8f9fa;
+            text-align: center;
+            padding: 30px;
+            color: #999;
+            font-size: 14px;
+            border-top: 1px solid #eee;
+          }
+          
+          .copyright {
+            margin-top: 20px;
+            font-size: 13px;
+            color: #aaa;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>📧 Email Test</h1>
+          </div>
+          
+          <div class="content">
+            <div class="success-icon">✅</div>
+            <h2>Email System Working!</h2>
+            <p>If you received this email, the email system is configured correctly and working as expected.</p>
+            <p>This is a test email sent from the Nazzel & Avionna website.</p>
+          </div>
+          
+          <div class="footer">
+            <p>This email was sent from ${DEFAULT_FROM_EMAIL}</p>
+            <div class="copyright">© 2025 Nazzel & Avionna's Love Story. All rights reserved.</div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
   })
 }
