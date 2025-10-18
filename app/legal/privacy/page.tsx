@@ -6,7 +6,7 @@ import { ArrowLeft, Lock, Home } from "lucide-react"
 export default function PrivacyPage() {
   // Get current date for automatic updating
   const currentDate = new Date();
-  const formattedDate = new Intl.DateTimeFormat('en-PH', {
+  const formattedDate = new Intl.DateTimeFormat('en-US', {
     month: 'long',
     year: 'numeric'
   }).format(currentDate);
