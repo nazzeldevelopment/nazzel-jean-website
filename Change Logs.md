@@ -1,6 +1,6 @@
 # Change Logs
 
-## Complete Email System Overhaul - January 2025
+## Complete Email System Overhaul - October 2025
 
 ### Summary
 
@@ -130,7 +130,7 @@ RECAPTCHA_SECRET_KEY=your_secret_key
 
 ---
 
-## reCAPTCHA Security and Email Optimization - January 2025
+## reCAPTCHA Security and Email Optimization - October 2025
 
 ### Summary
 
