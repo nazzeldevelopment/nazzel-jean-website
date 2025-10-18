@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server"
 import { storage } from "@/lib/db/storage" // your DB helper
 import { generateOTP } from "@/lib/auth/client-utils"
-import { sendPasswordResetEmail, sendAdminLog } from "@/lib/email"
+import { sendPasswordResetEmail, sendAdminLog } from "@/lib/email" // Using Resend service
 
 export async function POST(request: Request) {
   try {
@@ -54,26 +54,31 @@ export async function POST(request: Request) {
       })
     }
 
-    // Send reset email
+    // Send reset email with Resend
     try {
-      console.log(`Sending password reset email to ${email} for user ${user.username}`)
-      const result = await sendPasswordResetEmail(email, user.username, resetCode)
-      console.log("✅ Password reset email sent successfully:", result)
+      console.log(`Sending password reset email via Resend to ${email} for user ${user.username}`)
+      const emailResult = await sendPasswordResetEmail(email, user.username || user.email, resetCode)
+      if (!emailResult.success) {
+        console.error("Failed to send password reset email with Resend:", emailResult.error)
+        // Continue with success response to avoid user enumeration
+      } else {
+        console.log("✅ Password reset email sent successfully with Resend:", emailResult)
+      }
     } catch (e) {
-      console.error("❌ Password reset email failed to send:", e)
+      console.error("❌ Password reset email failed to send with Resend:", e)
       // Don't fail the request if email fails
     }
 
-    // Admin log
+    // Admin log via Resend
     try {
-      console.log(`Sending admin log for password reset request from ${email}`)
+      console.log(`Sending admin log via Resend for password reset request from ${email}`)
       const adminLogResult = await sendAdminLog(
         "Password reset requested",
         `<p>Reset requested for <strong>${email}</strong>.</p>`
       )
-      console.log("✅ Admin log sent successfully:", adminLogResult)
+      console.log("✅ Admin log sent successfully via Resend:", adminLogResult)
     } catch (e) {
-      console.error("❌ Admin log failed:", e)
+      console.error("❌ Admin log failed with Resend:", e)
     }
 
     return NextResponse.json({

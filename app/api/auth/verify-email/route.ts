@@ -54,8 +54,13 @@ export async function POST(request: Request) {
   // Send welcome email and admin log
   try {
     console.log(`Sending welcome email to ${user.email} for verified user ${user.username}`)
-    const welcomeResult = await sendWelcomeEmail(user.email, user.username)
-    console.log("Welcome email result:", welcomeResult)
+    const emailResult = await sendWelcomeEmail(user.email, user.username || user.email)
+    if (!emailResult.success) {
+      console.error("Failed to send welcome email:", emailResult.error)
+      // Continue anyway
+    } else {
+      console.log("✅ Welcome email sent successfully")
+    }
   } catch (e) {
     console.error("Welcome email failed:", e)
   }

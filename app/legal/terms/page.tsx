@@ -1,30 +1,44 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Shield } from "lucide-react"
+import { ArrowLeft, Shield, Home } from "lucide-react"
 
 export default function TermsPage() {
+  // Get current date for automatic updating
+  const currentDate = new Date();
+  const formattedDate = new Intl.DateTimeFormat('en-PH', {
+    month: 'long',
+    year: 'numeric'
+  }).format(currentDate);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50">
       <div className="container max-w-4xl mx-auto p-4 md:p-8">
-        <div className="mb-6">
+        <div className="mb-6 flex justify-between">
           <Link href="/forum">
-            <Button variant="outline" className="font-semibold bg-transparent">
+            <Button variant="outline" className="font-semibold bg-transparent hover:bg-rose-100 transition-colors">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Forum
             </Button>
           </Link>
+          <Link href="/">
+            <Button variant="outline" className="font-semibold bg-transparent hover:bg-rose-100 transition-colors">
+              <Home className="h-4 w-4 mr-2" />
+              Home
+            </Button>
+          </Link>
         </div>
 
-        <Card className="shadow-2xl border-0">
-          <CardHeader className="text-center pb-8">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-rose-500 to-pink-500 rounded-full flex items-center justify-center mb-4">
-              <Shield className="h-8 w-8 text-white" />
+        <Card className="shadow-2xl border-0 overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-rose-400 via-pink-500 to-rose-600"></div>
+          <CardHeader className="text-center pb-8 pt-10">
+            <div className="mx-auto w-20 h-20 bg-gradient-to-br from-rose-500 to-pink-500 rounded-full flex items-center justify-center mb-4 shadow-lg transform hover:scale-105 transition-transform">
+              <Shield className="h-10 w-10 text-white" />
             </div>
             <CardTitle className="text-4xl font-serif font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
               Terms of Service
             </CardTitle>
-            <p className="text-muted-foreground mt-2 font-medium">Last updated: January 2025</p>
+            <p className="text-muted-foreground mt-2 font-medium">Last updated: {formattedDate}</p>
           </CardHeader>
           <CardContent className="prose prose-rose max-w-none space-y-6">
             <section>
@@ -135,16 +149,40 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-serif font-bold text-foreground mb-3">10. Contact Information</h2>
+              <h2 className="text-2xl font-serif font-bold text-foreground mb-3">10. Intellectual Property</h2>
               <p className="text-foreground leading-relaxed font-medium">
-                If you have questions about these terms, please contact us through the forum or website contact methods.
+                All content on this website, including but not limited to text, graphics, logos, images, and software, is the property of our website or its content suppliers and is protected by Philippine copyright laws (Republic Act No. 8293 or the Intellectual Property Code of the Philippines). Unauthorized use of any materials may violate copyright, trademark, and other laws.
               </p>
             </section>
 
-            <div className="mt-8 p-6 bg-gradient-to-r from-rose-50 to-pink-50 rounded-lg border-2 border-primary/20">
+            <section>
+              <h2 className="text-2xl font-serif font-bold text-foreground mb-3">11. Governing Law</h2>
+              <p className="text-foreground leading-relaxed font-medium">
+                These Terms shall be governed by and construed in accordance with the laws of the Republic of the Philippines. Any disputes arising under these Terms shall be subject to the exclusive jurisdiction of the courts of the Philippines.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-serif font-bold text-foreground mb-3">12. Contact Information</h2>
+              <p className="text-foreground leading-relaxed font-medium">
+                If you have questions about these terms, please contact us through the forum or website contact methods. Our office is located in the Philippines, and we strive to respond to all inquiries within 48 hours.
+              </p>
+            </section>
+
+            <div className="mt-8 p-6 bg-gradient-to-r from-rose-50 to-pink-50 rounded-lg border-2 border-primary/20 shadow-inner">
               <p className="text-center text-foreground font-semibold">
                 By using our forum, you acknowledge that you have read, understood, and agree to be bound by these Terms
                 of Service.
+              </p>
+              <div className="flex justify-center mt-4">
+                <Link href="/">
+                  <Button className="bg-gradient-to-r from-rose-500 to-pink-500 text-white hover:from-rose-600 hover:to-pink-600 transition-all">
+                    Return to Homepage
+                  </Button>
+                </Link>
+              </div>
+              <p className="text-center text-muted-foreground text-sm mt-6">
+                © {new Date().getFullYear()} Nazzel-Jean Website. All rights reserved.
               </p>
             </div>
           </CardContent>

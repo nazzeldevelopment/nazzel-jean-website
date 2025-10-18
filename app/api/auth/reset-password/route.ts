@@ -55,8 +55,12 @@ export async function POST(request: Request) {
     // Send confirmation email to user
     try {
       console.log(`Sending password reset confirmation email to ${email} for user ${user.username}`)
-      const confirmationResult = await sendPasswordResetEmail(email, user.username, "✔️ Password Reset Successful!")
-      console.log("✅ Password reset confirmation email sent successfully:", confirmationResult)
+      const confirmationResult = await sendPasswordChangedEmail(email, user.username || user.email)
+      if (!confirmationResult.success) {
+        console.error("❌ Password reset confirmation email failed:", confirmationResult.error)
+      } else {
+        console.log("✅ Password reset confirmation email sent successfully")
+      }
     } catch (e) {
       console.error("❌ Password reset confirmation email failed:", e)
     }

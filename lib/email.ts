@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer"
+import { Resend } from 'resend';
 
 // -------------------- ENV Variables --------------------
 const DEFAULT_FROM_EMAIL =
@@ -7,11 +7,11 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "nazzelv.quinto@gmail.com"
 
 // -------------------- Environment Validation --------------------
 export function validateEmailConfig() {
-  const required = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS']
+  const required = ['RESEND_API_KEY']
   const missing = required.filter(key => !process.env[key])
   
   if (missing.length > 0) {
-    console.error("Missing required email environment variables:", missing)
+    console.warn("Missing required email environment variable:", missing)
     return false
   }
   
@@ -19,28 +19,8 @@ export function validateEmailConfig() {
   return true
 }
 
-// -------------------- SMTP Transporter --------------------
-export const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER || "",
-    pass: process.env.SMTP_PASS || "",
-  },
-  // Connection timeout settings
-  connectionTimeout: 30000, // 30 seconds
-  greetingTimeout: 15000, // 15 seconds
-  socketTimeout: 30000, // 30 seconds
-  // TLS settings for better compatibility
-  tls: {
-    rejectUnauthorized: false, // For custom domain compatibility
-    ciphers: 'TLSv1.2'
-  },
-  // Debug mode for troubleshooting
-  debug: process.env.NODE_ENV === 'development',
-  logger: process.env.NODE_ENV === 'development'
-})
+// -------------------- Resend Client --------------------
+export const resend = new Resend(process.env.RESEND_API_KEY || '');
 
 // -------------------- Email Templates --------------------
 export const emailTemplates = {
@@ -446,45 +426,52 @@ export async function sendEmail({
   from?: string
 }) {
   try {
-    // Verify transporter configuration
+    // Verify configuration
     if (!validateEmailConfig()) {
       console.error("Email configuration validation failed")
-      throw new Error("SMTP credentials not configured properly")
+      throw new Error("Resend API key not configured properly")
     }
 
     console.log(`Attempting to send email to ${to} from ${from}`)
 
-    // Send email
-    const mailOptions = {
-      from: from,
-      to: to,
-      subject: subject,
-      html: html,
-      envelope: { 
-        from: DEFAULT_FROM_EMAIL, 
-        to: to 
-      },
-      replyTo: DEFAULT_FROM_EMAIL,
+    try {
+      const data = await resend.emails.send({
+        from: `Nazzel & Avionna <${DEFAULT_FROM_EMAIL}>`,
+        to: [to],
+        subject: subject,
+        html: html,
+        reply_to: DEFAULT_FROM_EMAIL,
+      });
+
+      console.log(`✅ Email sent successfully to ${to}:`, data.id)
+      return { success: true, messageId: data.id }
+    } catch (emailError) {
+      console.error("❌ Email sending failed:", emailError)
+      
+      // Try with alternative settings (just the domain email without the name)
+      try {
+        const data = await resend.emails.send({
+          from: DEFAULT_FROM_EMAIL,
+          to: [to],
+          subject: subject,
+          html: html,
+        });
+        
+        console.log(`✅ Email sent successfully with alternative settings to ${to}:`, data.id)
+        return { success: true, messageId: data.id }
+      } catch (retryError) {
+        throw retryError; // Re-throw to be caught by outer catch
+      }
     }
-
-    console.log("Mail options:", {
-      from: mailOptions.from,
-      to: mailOptions.to,
-      subject: mailOptions.subject,
-      envelope: mailOptions.envelope
-    })
-
-    const info = await transporter.sendMail(mailOptions)
-    
-    console.log(`✅ Email sent successfully to ${to}:`, info.messageId)
-    return { success: true, messageId: info.messageId }
   } catch (error) {
-    console.error("❌ Email sending failed:", error)
+    console.error("❌ Email sending failed after all attempts:", error)
     console.error("Error details:", {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined
     })
-    throw error
+    
+    // Return failure instead of throwing to prevent API routes from crashing
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
 
