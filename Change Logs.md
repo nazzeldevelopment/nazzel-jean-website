@@ -1,5 +1,26 @@
 # Change Logs
 
+## Subdomain header middleware - October 20, 2025
+
+### Summary
+
+Introduced middleware to detect wildcard subdomains and forward the extracted value to the app via a custom header, enabling all pages to respond to subdomain-specific contexts while keeping primary hosts unaffected.
+
+### Key Changes
+
+- **`middleware.ts`** Added new middleware that:
+  - Computes the apex domain from `NEXT_PUBLIC_SITE_URL` and auto-allows the apex plus `www`.
+  - Whitelists direct hosts from `NEXT_PUBLIC_DIRECT_HOSTS` as well as `localhost` and `127.0.0.1`.
+  - Extracts the subdomain portion for wildcard hosts and injects it into the `x-subdomain` request header for downstream handlers.
+- **Environment** Documented expected variables:
+  - `NEXT_PUBLIC_SITE_URL` must point to the apex domain (e.g., `https://www.nazzelandavionna.site`).
+  - `NEXT_PUBLIC_DIRECT_HOSTS` can list comma-separated hosts that should bypass subdomain processing (optional).
+
+### Deployment Notes
+
+- Configure DNS/hosting for `*.nazzelandavionna.site` (or equivalent) to forward requests to the Next.js app.
+- Verify deployments by inspecting incoming request headers to confirm `x-subdomain` is present when accessing wildcard hosts.
+
 <<<<<<< HEAD
 ## Email Service Migration to Resend - October 16, 2025
 
