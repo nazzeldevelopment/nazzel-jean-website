@@ -23,12 +23,6 @@ Introduced middleware to detect wildcard subdomains and forward the extracted va
 - Configure DNS/hosting for `*.nazzelandavionna.site` (or equivalent) to forward requests to the Next.js app.
 - Verify deployments by inspecting incoming request headers to confirm `x-subdomain` is present when accessing wildcard hosts.
 
-* **Consistent Sender Identity** - Standardized "from" field with proper name and address
-* **Reliable Delivery** - Eliminated SMTP connection and authentication issues
-* **Maintained Templates** - Preserved professional email templates while improving delivery
-
-### Files Modified
-
 #### Updated Files
 * `lib/email.ts` - Completely refactored to use Resend instead of Nodemailer/SMTP
 * `app/api/auth/forgot-password/route.ts` - Updated to work with Resend email service

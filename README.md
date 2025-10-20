@@ -144,6 +144,30 @@
 5. Run: `npm run dev`
 6. Open browser to `http://localhost:3000`
 
+### Configuration (`config.json`)
+
+- **Location:** `config.json`
+- **Purpose:** Central source for branding, couple names, metadata, API path, and forum/footer/email copy.
+- **Sections:**
+  - `site`
+    - `name`, `tagline`, `description`, `url`, `metadataBase`
+    - `keywords`, `authors`, `creator`, `publisher`
+    - Metadata blocks: `openGraph`, `twitter`, `robots`
+    - Footer copy: `copy`, `legalName`
+  - `couple`
+    - `primaryName`, `partnerName`, `combinedName`
+  - `forum`
+    - `brandName`, `featuredLine` (supports `{{coupleName}}` placeholder)
+  - `footer`
+    - `legalName`
+  - `emails`
+    - `defaultFromName`
+  - `api`
+    - `basePath` (appended to `site.url` in `lib/utils.ts`)
+  - Additional blocks (e.g., `calendar`) can be added as needed.
+- **Usage:** Import via `import { siteConfig } from "@/config/site"` to access strongly typed data.
+- **Tip:** Update this file to change displayed names or domain copy without touching environment variables.
+
 ### First Steps
 
 1. **Create Admin Account:**
