@@ -23,22 +23,6 @@ Introduced middleware to detect wildcard subdomains and forward the extracted va
 - Configure DNS/hosting for `*.nazzelandavionna.site` (or equivalent) to forward requests to the Next.js app.
 - Verify deployments by inspecting incoming request headers to confirm `x-subdomain` is present when accessing wildcard hosts.
 
-<<<<<<< HEAD
-## Email Service Migration to Resend - October 16, 2025
-
-### Summary
-
-Migrated the email system from SMTP (Hostinger) to Resend email service for improved deliverability and reliability. This change addresses issues with the custom domain email sending and simplifies the email configuration.
-
-### Key Changes
-
-#### Email Service Migration
-* **Switched to Resend API** - Replaced SMTP configuration with Resend's modern email API
-* **Simplified Configuration** - Reduced environment variables to just `RESEND_API_KEY`
-* **Improved Deliverability** - Better email delivery rates and inbox placement
-* **Enhanced Error Handling** - Added fallback mechanisms and better error reporting
-
-#### Authentication Email Improvements
 * **Consistent Sender Identity** - Standardized "from" field with proper name and address
 * **Reliable Delivery** - Eliminated SMTP connection and authentication issues
 * **Maintained Templates** - Preserved professional email templates while improving delivery

@@ -60,8 +60,22 @@ import { EnhancedHeader } from "@/components/enhanced-header"
 import { apiFetch } from "@/lib/utils"
 import { NotificationCenter } from "@/components/notification-center"
 import { buildThemeCssVariables, getForumTheme } from "@/config/forum-theme"
+import { siteConfig } from "@/config/site"
 
 declare const process: { env: Record<string, string | undefined> }
+
+const { couple, forum, site } = siteConfig
+const normalizeName = (value?: string) => (value ?? "").toLowerCase().replace(/\s+/g, "")
+const normalizedCoupleNames = [normalizeName(couple?.primaryName), normalizeName(couple?.partnerName)].filter(
+  (value) => value.length > 0,
+)
+const coupleDisplayName =
+  couple?.combinedName ||
+  [couple?.primaryName, couple?.partnerName].filter((value) => (value ?? "").trim().length > 0).join(" & ") ||
+  site.name
+const forumFeaturedLineTemplate = forum?.featuredLine ?? "Featured space for {{coupleName}}"
+const forumFeaturedLine = forumFeaturedLineTemplate.replace("{{coupleName}}", coupleDisplayName)
+const forumLogPrefix = coupleDisplayName
 
 const categories = ["Love Letters", "Memories", "Thoughts & Quotes", "Future Dreams", "Open Talks"] as const
 type ForumCategory = (typeof categories)[number]
@@ -219,7 +233,7 @@ export default function ForumPage() {
             }
           }
         } catch (err) {
-          console.error("Nazzel and Aviona Fetch user error:", err)
+          console.error(`${forumLogPrefix} Fetch user error:`, err)
         }
       }
 
@@ -251,8 +265,8 @@ export default function ForumPage() {
     if (coupleMode) {
       filtered = filtered.filter((post) => {
         const username = post.author?.username || post.username
-        const normalized = username.toLowerCase()
-        return normalized === "nazzel" || normalized === "avionna"
+        const normalized = normalizeName(username)
+        return normalizedCoupleNames.includes(normalized)
       })
     }
 
@@ -310,7 +324,7 @@ export default function ForumPage() {
       setPosts(normalized)
       setStats(data.meta ?? { ...defaultStats, totalPosts: normalized.length })
     } catch (err) {
-      console.error("Nazzel and Aviona Load posts error:", err)
+      console.error(`${forumLogPrefix} Load posts error:`, err)
     } finally {
       setLoading(false)
     }
@@ -322,7 +336,7 @@ export default function ForumPage() {
       const data = (await response.json()) as OnlineUsersResponse
       setOnlineUsers(data.users ?? [])
     } catch (err) {
-      console.error("Nazzel and Aviona Load online users error:", err)
+      console.error(`${forumLogPrefix} Load online users error:`, err)
     }
   }, [])
 
@@ -344,7 +358,7 @@ export default function ForumPage() {
         loadOnlineUsers()
       }
     } catch (err) {
-      console.error("Nazzel and Aviona Update online status error:", err)
+      console.error(`${forumLogPrefix} Update online status error:`, err)
     }
   }, [loadOnlineUsers])
 
@@ -358,7 +372,7 @@ export default function ForumPage() {
         })
         loadPosts()
       } catch (err) {
-        console.error("Nazzel and Aviona Track view error:", err)
+        console.error(`${forumLogPrefix} Track view error:`, err)
       }
     },
     [loadPosts, user?.id],
@@ -383,7 +397,7 @@ export default function ForumPage() {
         })
         loadPosts()
       } catch (err) {
-        console.error("Nazzel and Aviona Reaction error:", err)
+        console.error(`${forumLogPrefix} Reaction error:`, err)
       }
     },
     [loadPosts, router, user],
@@ -424,7 +438,7 @@ export default function ForumPage() {
 
         setShareDialogOpen(false)
       } catch (err) {
-        console.error("Nazzel and Aviona Share error:", err)
+        console.error(`${forumLogPrefix} Share error:`, err)
       }
     },
     [loadPosts, posts],
@@ -491,7 +505,7 @@ export default function ForumPage() {
           },
         })
       } catch (err) {
-        console.error("Nazzel and Aviona Logout error:", err)
+        console.error(`${forumLogPrefix} Logout error:`, err)
       }
       localStorage.removeItem("authToken")
     }
@@ -586,7 +600,7 @@ export default function ForumPage() {
                     <div>
                       <div className="flex items-center gap-2 text-sm font-medium text-[var(--forum-foreground-muted)]">
                         <Crown className="h-4 w-4 text-[var(--forum-secondary)]" />
-                        Featured space for Nazzel & Avionna
+                        {forumFeaturedLine}
                       </div>
                       <h1 className="mt-3 text-3xl md:text-4xl font-serif text-[var(--forum-foreground)]">
                         A professional forum crafted for your love story

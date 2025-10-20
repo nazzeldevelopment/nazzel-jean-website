@@ -1,13 +1,15 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import { siteConfig } from '@/config/site'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
 // External API base URL for mobile apps and web client
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.nazzelandavionna.site'
-export const API_BASE_URL: string = process.env.NEXT_PUBLIC_API_BASE_URL || `${SITE_URL}/api`
+const SITE_URL = siteConfig.site.url.replace(/\/$/, '')
+const API_BASE_PATH = siteConfig.api?.basePath ?? '/api'
+export const API_BASE_URL: string = `${SITE_URL}${API_BASE_PATH.startsWith('/') ? API_BASE_PATH : `/${API_BASE_PATH}`}`
 
 type ApiFetchOptions = RequestInit & { headers?: Record<string, string> }
 

@@ -4,9 +4,13 @@ import { Heart, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { CoupleSpinnerLogo } from "@/components/couple-spinner-logo"
+import { siteConfig } from "@/config/site"
 
 export default function HomePage() {
   const [isVisible, setIsVisible] = useState(false)
+  const { couple, site } = siteConfig
+
+  const coupleNames = couple ?? { primaryName: "", partnerName: "", combinedName: site.name }
 
   useEffect(() => {
     setIsVisible(true)
@@ -60,17 +64,17 @@ export default function HomePage() {
             <div className="space-y-8 pt-16">
               <h1 className="font-serif text-7xl md:text-9xl text-balance leading-tight font-bold">
                 <span className="inline-block animate-fade-in-up bg-gradient-to-br from-primary to-primary/80 bg-clip-text text-transparent drop-shadow-2xl">
-                  Nazzel
+                  {coupleNames.primaryName}
                 </span>
                 <span className="inline-block mx-8 text-6xl md:text-8xl">
                   <Heart className="inline-block text-primary fill-primary animate-pulse drop-shadow-2xl" />
                 </span>
                 <span className="inline-block animate-fade-in-up animation-delay-200 bg-gradient-to-br from-accent to-accent/80 bg-clip-text text-transparent drop-shadow-2xl">
-                  Avionna
+                  {coupleNames.partnerName}
                 </span>
               </h1>
               <p className="text-3xl md:text-5xl text-foreground/90 font-semibold animate-fade-in-up animation-delay-400 tracking-wide drop-shadow-lg">
-                Our Love Story Forever
+                {site.tagline}
               </p>
             </div>
 
@@ -79,7 +83,7 @@ export default function HomePage() {
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/40 via-accent/40 to-primary/40 blur-3xl group-hover:blur-2xl transition-all" />
                 <div className="relative bg-gradient-to-br from-card via-card to-card/95 backdrop-blur-2xl border-2 border-primary/30 rounded-3xl p-12 md:p-20 space-y-10 shadow-2xl shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-[1.02] duration-500">
                   <h2 className="text-5xl md:text-7xl font-serif font-bold text-balance leading-tight text-foreground drop-shadow-md">
-                    Hi! We're Nazzel & Avionna.
+                    Hi! We're {coupleNames.combinedName}.
                   </h2>
                   <p className="text-3xl md:text-4xl bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent font-extrabold drop-shadow-sm">
                     Two souls, one heart.
