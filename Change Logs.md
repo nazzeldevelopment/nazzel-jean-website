@@ -189,7 +189,7 @@ Completely redesigned the email system to simplify functionality while improving
 * **Maintained Compatibility** - Works with all existing authentication flows
 * **Admin Logging** - Essential admin notifications still functional
 
-````
+---
 
 ## October 20, 2025 — Environment variable handling
 
@@ -201,5 +201,21 @@ Completely redesigned the email system to simplify functionality while improving
 	- `RESEND_API_KEY` (required for email delivery)
 	- `EMAIL_FROM` (recommended override for the from address)
 	- `ADMIN_EMAIL` (optional admin notification address)
+
+---
+
+## October 20, 2025 — Forum theme configuration
+
+- **`NEXT_PUBLIC_FORUM_THEME`** controls which forum theme tokens are loaded from `config/forum-theme.ts`.
+- Supported keys (case-sensitive):
+	- `default` → Aurora palette (soft rose & cyan, bright surfaces)
+	- `sunset` → Vesper palette (warm evening oranges & ambers)
+	- `midnight` → Lumen palette (cool midnight blues & violets)
+- When the variable is unset or an unknown key is supplied, the forum falls back to `default` automatically.
+- Update your deployment settings or `.env.local` with the desired key, for example:
+
+```env
+NEXT_PUBLIC_FORUM_THEME=midnight
+```
 
 ---
