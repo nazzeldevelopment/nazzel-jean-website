@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
+import type { ChangeEvent, CSSProperties, MouseEvent } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -85,6 +86,13 @@ const moodColors: Record<ForumMood, string> = {
 }
 
 const reactionEmojis = ["❤️", "👍", "😂", "😮", "😢", "🔥"] as const
+type ReactionEmoji = (typeof reactionEmojis)[number]
+
+type ReactionRecord = ForumPostWithAuthor["reactions"][number]
+
+type CategoryFilter = "all" | ForumCategory
+type SortOption = "newest" | "most-liked" | "most-discussed"
+type SharePlatform = "facebook" | "twitter" | "instagram"
 
 interface ForumMeta {
   totalPosts: number
@@ -114,11 +122,40 @@ const RELATIVE_TIME_DIVISIONS: Array<{ amount: number; unit: Intl.RelativeTimeFo
   { amount: Number.POSITIVE_INFINITY, unit: "year" },
 ]
 
-interface ForumMeta {
-  totalPosts: number
-  totalReplies: number
-  totalReactions: number
-  totalViews: number
+const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" })
+
+function formatRelativeTimeValue(dateInput?: Date | string): string {
+  if (!dateInput) return "Unknown"
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput)
+  if (Number.isNaN(date.getTime())) return "Unknown"
+
+  let duration = (date.getTime() - Date.now()) / 1000
+
+  for (const division of RELATIVE_TIME_DIVISIONS) {
+    if (Math.abs(duration) < division.amount) {
+      return relativeTimeFormatter.format(Math.round(duration), division.unit)
+    }
+    duration /= division.amount
+  }
+
+  return relativeTimeFormatter.format(Math.round(duration), "year")
+}
+
+interface DraftPost {
+  title: string
+  content: string
+  category: string
+  tags: string
+  mood: string
+}
+
+interface ForumPostsResponse {
+  posts?: ForumPostWithAuthor[]
+  meta?: ForumMeta
+}
+
+interface OnlineUsersResponse {
+  users?: User[]
 }
 
 export default function ForumPage() {
@@ -130,18 +167,28 @@ export default function ForumPage() {
   const [stats, setStats] = useState<ForumMeta>(defaultStats)
   const [loading, setLoading] = useState(true)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [newPost, setNewPost] = useState({ title: "", content: "", category: "", tags: "", mood: "" })
+  const [newPost, setNewPost] = useState<DraftPost>({
+    title: "",
+    content: "",
+    category: "",
+    tags: "",
+    mood: "",
+  })
   const [error, setError] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [sharePostId, setSharePostId] = useState<string | null>(null)
 
-  const [selectedCategory, setSelectedCategory] = useState<string>("all")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState<"newest" | "most-liked" | "most-discussed">("newest")
-  const [coupleMode, setCoupleMode] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>("all")
+  const [searchQuery, setSearchQuery] = useState<string>("")
+  const [sortBy, setSortBy] = useState<SortOption>("newest")
+  const [coupleMode, setCoupleMode] = useState<boolean>(false)
 
-  const cssVariables = useMemo(() => themeCssVariables, [])
+  const cssVariables = useMemo<CSSProperties>(() => themeCssVariables as CSSProperties, [])
+
+  const handleSearchChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value)
+  }, [])
 
   useEffect(() => {
     const token = localStorage.getItem("authToken")
@@ -184,7 +231,7 @@ export default function ForumPage() {
   }, [])
 
   useEffect(() => {
-    let filtered = [...posts]
+    let filtered: ForumPostWithAuthor[] = [...posts]
 
     if (selectedCategory !== "all") {
       filtered = filtered.filter((post) => post.category === selectedCategory)
@@ -229,25 +276,39 @@ export default function ForumPage() {
   const loadPosts = useCallback(async () => {
     try {
       const response = await apiFetch("/forum/posts")
-      const data = await response.json()
-      const normalized: ForumPostWithAuthor[] = (data.posts || []).map((post: ForumPostWithAuthor) => ({
-        ...post,
-        createdAt: new Date(post.createdAt),
-        updatedAt: new Date(post.updatedAt),
-        author: post.author
+      const data = (await response.json()) as ForumPostsResponse
+      const normalized: ForumPostWithAuthor[] = (data.posts ?? []).map((post) => {
+        const createdAt = new Date(post.createdAt)
+        const updatedAt = new Date(post.updatedAt)
+        const authorSummary: ForumAuthorSummary = post.author
           ? {
               ...post.author,
-              lastSeen: post.author.lastSeen ? new Date(post.author.lastSeen) : new Date(post.updatedAt),
+              lastSeen: new Date(post.author.lastSeen),
             }
-          : undefined,
-        reactions: post.reactions?.map((reaction) => ({
+          : {
+              id: post.userId,
+              username: post.username,
+              role: "guest",
+              isOnline: false,
+              lastSeen: updatedAt,
+            }
+
+        const reactions: ReactionRecord[] = (post.reactions ?? []).map((reaction) => ({
           ...reaction,
           createdAt: new Date(reaction.createdAt),
-        })) || [],
-      }))
+        }))
+
+        return {
+          ...post,
+          createdAt,
+          updatedAt,
+          author: authorSummary,
+          reactions,
+        }
+      })
 
       setPosts(normalized)
-      setStats(data.meta || defaultStats)
+      setStats(data.meta ?? { ...defaultStats, totalPosts: normalized.length })
     } catch (err) {
       console.error("Nazzel and Aviona Load posts error:", err)
     } finally {
@@ -258,8 +319,8 @@ export default function ForumPage() {
   const loadOnlineUsers = useCallback(async () => {
     try {
       const response = await apiFetch("/users/online")
-      const data = await response.json()
-      setOnlineUsers(data.users || [])
+      const data = (await response.json()) as OnlineUsersResponse
+      setOnlineUsers(data.users ?? [])
     } catch (err) {
       console.error("Nazzel and Aviona Load online users error:", err)
     }
@@ -329,7 +390,7 @@ export default function ForumPage() {
   )
 
   const handleShare = useCallback(
-    async (postId: string, platform: string) => {
+    async (postId: string, platform: SharePlatform) => {
       try {
         await apiFetch(`/forum/posts/${postId}/share`, {
           method: "POST",
@@ -337,7 +398,7 @@ export default function ForumPage() {
         })
         loadPosts()
 
-        const post = posts.find((p) => p.id === postId)
+        const post = posts.find((candidate) => candidate.id === postId)
         if (!post) return
 
         const shareUrl = `${window.location.origin}/forum?post=${postId}`
@@ -356,6 +417,8 @@ export default function ForumPage() {
           case "instagram":
             await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`)
             alert("Link copied to clipboard! You can now paste it on Instagram.")
+            break
+          default:
             break
         }
 
@@ -457,20 +520,15 @@ export default function ForumPage() {
     })
   }, [])
 
-  const formatRelativeTime = useCallback((date?: Date | string) => {
-    if (!date) return "Unknown"
-    const parsed = new Date(date)
-    if (Number.isNaN(parsed.getTime())) return "Unknown"
-    return formatDistanceToNow(parsed, { addSuffix: true })
-  }, [])
+  const formatRelativeTime = useCallback((date?: Date | string) => formatRelativeTimeValue(date), [])
 
-  const getReactionCount = useCallback((reactions: any[], emoji: string) => {
-    return reactions.filter((r) => r.emoji === emoji).length
+  const getReactionCount = useCallback((reactions: ReactionRecord[], emoji: ReactionEmoji) => {
+    return reactions.filter((reaction) => reaction.emoji === emoji).length
   }, [])
 
   const hasUserReacted = useCallback(
-    (reactions: any[], emoji: string) => {
-      return reactions.some((r) => r.userId === user?.id && r.emoji === emoji)
+    (reactions: ReactionRecord[], emoji: ReactionEmoji) => {
+      return reactions.some((reaction) => reaction.userId === user?.id && reaction.emoji === emoji)
     },
     [user?.id],
   )
@@ -478,7 +536,7 @@ export default function ForumPage() {
   const trendingTags = useMemo(() => {
     const counts = new Map<string, number>()
     posts.forEach((post) => {
-      post.tags?.forEach((tag) => {
+      post.tags?.forEach((tag: string) => {
         counts.set(tag, (counts.get(tag) || 0) + 1)
       })
     })
@@ -492,12 +550,12 @@ export default function ForumPage() {
   const offlineAuthors = useMemo(() => {
     const unique = new Map<string, { username: string; lastSeen?: Date }>()
     posts.forEach((post) => {
-      if (!post.author) return
-      if (post.author.isOnline) return
-      if (!unique.has(post.author.id)) {
-        unique.set(post.author.id, {
-          username: post.author.username,
-          lastSeen: post.author.lastSeen,
+      const author = post.author
+      if (!author || author.isOnline) return
+      if (!unique.has(author.id)) {
+        unique.set(author.id, {
+          username: author.username,
+          lastSeen: author.lastSeen,
         })
       }
     })
@@ -682,11 +740,11 @@ export default function ForumPage() {
                     <Input
                       placeholder="Search by title, content, tags, or author"
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={handleSearchChange}
                       className="h-12 rounded-xl border-[var(--forum-border)] bg-[var(--forum-surface-muted)] pl-11 font-medium"
                     />
                   </div>
-                  <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                  <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
                     <SelectTrigger className="w-[200px] h-12 rounded-xl border-[var(--forum-border)] bg-[var(--forum-surface-muted)] font-medium">
                       <SortAsc className="h-4 w-4 mr-2 text-[var(--forum-secondary)]" />
                       <SelectValue placeholder="Sort" />
@@ -706,7 +764,7 @@ export default function ForumPage() {
                   </Button>
                 </div>
 
-                <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
+                <Tabs value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as CategoryFilter)} className="w-full">
                   <TabsList className="flex w-full flex-wrap justify-start gap-2 rounded-2xl bg-[var(--forum-surface-muted)] p-2">
                     <TabsTrigger
                       value="all"
@@ -716,7 +774,7 @@ export default function ForumPage() {
                       All posts
                     </TabsTrigger>
                     {categories.map((cat) => {
-                      const Icon = categoryIcons[cat as keyof typeof categoryIcons]
+                      const Icon = categoryIcons[cat]
                       return (
                         <TabsTrigger
                           key={cat}
@@ -780,16 +838,8 @@ export default function ForumPage() {
             ) : (
               <div className="space-y-5">
                 {filteredPosts.map((post) => {
-                  const Icon = categoryIcons[post.category as keyof typeof categoryIcons]
-                  const moodColorClass = post.mood
-                    ? {
-                        Happy: "bg-amber-50 border-amber-200",
-                        Hopeful: "bg-sky-50 border-sky-200",
-                        Sentimental: "bg-rose-50 border-rose-200",
-                        Thoughtful: "bg-violet-50 border-violet-200",
-                        Excited: "bg-orange-50 border-orange-200",
-                      }[post.mood as keyof typeof moodOptions]
-                    : "bg-[var(--forum-surface)] border-[var(--forum-border)]"
+                  const Icon = categoryIcons[post.category]
+                  const moodColorClass = post.mood ? moodColors[post.mood as ForumMood] ?? "bg-[var(--forum-surface)] border-[var(--forum-border)]" : "bg-[var(--forum-surface)] border-[var(--forum-border)]"
 
                   const author = post.author ?? {
                     username: post.username,
@@ -879,13 +929,14 @@ export default function ForumPage() {
                           </div>
                           <div className="flex flex-wrap items-center gap-2">
                             {reactionEmojis.map((emoji) => {
-                              const count = getReactionCount(post.reactions || [], emoji)
-                              const reacted = hasUserReacted(post.reactions || [], emoji)
+                              const reactions = post.reactions ?? []
+                              const count = getReactionCount(reactions, emoji)
+                              const reacted = hasUserReacted(reactions, emoji)
                               return (
                                 <button
                                   key={emoji}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
+                                  onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                                    event.stopPropagation()
                                     handleReaction(post.id, emoji)
                                   }}
                                   className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold transition ${
@@ -907,8 +958,8 @@ export default function ForumPage() {
                             variant="outline"
                             size="sm"
                             className="rounded-full border-[var(--forum-border)]"
-                            onClick={(e) => {
-                              e.stopPropagation()
+                            onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                              event.stopPropagation()
                               setSharePostId(post.id)
                               setShareDialogOpen(true)
                             }}
@@ -919,9 +970,9 @@ export default function ForumPage() {
                             variant="ghost"
                             size="sm"
                             className="rounded-full text-[var(--forum-foreground-muted)] hover:text-[var(--forum-secondary)]"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
+                            onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                              event.preventDefault()
+                              event.stopPropagation()
                             }}
                           >
                             <Bookmark className="mr-2 h-4 w-4" /> Save to library
@@ -930,9 +981,9 @@ export default function ForumPage() {
                             variant="ghost"
                             size="sm"
                             className="rounded-full text-[var(--forum-foreground-muted)] hover:text-[var(--forum-secondary)]"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
+                            onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                              event.preventDefault()
+                              event.stopPropagation()
                             }}
                           >
                             <Clock3 className="mr-2 h-4 w-4" /> View timeline
@@ -1058,7 +1109,7 @@ export default function ForumPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map((cat) => {
-                      const Icon = categoryIcons[cat as keyof typeof categoryIcons]
+                      const Icon = categoryIcons[cat]
                       return (
                         <SelectItem key={cat} value={cat} className="font-medium">
                           <div className="flex items-center gap-2">
@@ -1102,7 +1153,7 @@ export default function ForumPage() {
                 id="title"
                 placeholder="Give your story a headline"
                 value={newPost.title}
-                onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => setNewPost({ ...newPost, title: event.target.value })}
                 className="font-medium"
               />
             </div>
@@ -1115,7 +1166,7 @@ export default function ForumPage() {
                 id="tags"
                 placeholder="anniversary, promise, milestone"
                 value={newPost.tags}
-                onChange={(e) => setNewPost({ ...newPost, tags: e.target.value })}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => setNewPost({ ...newPost, tags: event.target.value })}
                 className="font-medium"
               />
               <p className="text-xs text-[var(--forum-foreground-muted)]">Separate tags with commas to boost discovery.</p>
@@ -1129,7 +1180,7 @@ export default function ForumPage() {
                 id="content"
                 placeholder="Share your message..."
                 value={newPost.content}
-                onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
+                onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setNewPost({ ...newPost, content: event.target.value })}
                 rows={6}
                 className="font-medium"
               />
