@@ -1,0 +1,62 @@
+{
+  "site": {
+    "name": "Nazzel & Avionna",
+    "tagline": "Our Love Story Forever",
+    "description": "Welcome to the official page of Nazzel and Avionna — a story of love, faith, and forever. Discover our journey together, filled with laughter, adventures, and unbreakable bond.",
+    "url": "https://www.nazzelandavionna.site",
+    "metadataBase": "https://www.nazzelandavionna.site",
+    "keywords": [
+      "Nazzel",
+      "Avionna",
+      "love story",
+      "couple",
+      "relationship",
+      "romance",
+      "forever",
+      "together",
+      "nazzelandavionna",
+      "nazzel and avionna"
+    ],
+    "authors": ["Nazzel & Avionna"],
+    "creator": "Nazzel & Avionna",
+    "publisher": "Nazzel & Avionna",
+    "copy": "Our Love, Our Story, Our Forever.",
+    "legalName": "Nazzel-Jean Website",
+    "openGraph": {
+      "image": "/romantic-couple-sitting-together-outdoors-warm-sun.jpg",
+      "width": 1200,
+      "height": 630,
+      "alt": "Nazzel & Avionna - Our Love Story Forever",
+      "locale": "en_US",
+      "type": "website"
+    },
+    "twitter": {
+      "card": "summary_large_image",
+      "title": "Nazzel & Avionna | Our Love Story Forever",
+      "description": "Celebrate the journey of Nazzel and Avionna through cherished memories, heartfelt letters, and timeless moments.",
+      "image": "/romantic-couple-sitting-together-outdoors-warm-sun.jpg"
+    },
+    "robots": {
+      "index": true,
+      "follow": true
+    }
+  },
+  "couple": {
+    "primaryName": "Nazzel",
+    "partnerName": "Avionna",
+    "combinedName": "Nazzel & Avionna"
+  },
+  "forum": {
+    "brandName": "Nazzel & Avionna",
+    "featuredLine": "Featured space for {{coupleName}}"
+  },
+  "footer": {
+    "legalName": "Nazzel-Jean Website"
+  },
+  "emails": {
+    "defaultFromName": "Nazzel & Avionna"
+  },
+  "api": {
+    "basePath": "/api"
+  }
+}
