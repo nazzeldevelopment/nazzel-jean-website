@@ -52,7 +52,8 @@ export default function PrivacyPage() {
               <p className="text-foreground leading-relaxed font-medium mt-3">
                 By creating an account, continuing to browse, or participating in forum activities, you acknowledge that you
                 have read and understood this Privacy Policy. We encourage you to review this document regularly to stay
-                informed about how we protect your information.
+                informed about how we protect your information. This policy covers the main nazzelandavionna.site domain as
+                well as all related subdomains, microsites, and hosted applications that we operate.
               </p>
             </section>
 

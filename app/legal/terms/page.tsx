@@ -52,7 +52,8 @@ export default function TermsPage() {
               <p className="text-foreground leading-relaxed font-medium mt-3">
                 We may update these Terms periodically to reflect changes in features, legal requirements, or community
                 expectations. We will provide reasonable notice of significant changes through the forum or email. Continued
-                use after changes constitutes acceptance of the updated Terms.
+                use after changes constitutes acceptance of the updated Terms. These Terms cover the main nazzelandavionna.site
+                domain as well as any subdomains, companion apps, or microsites operated under the same ownership.
               </p>
             </section>
 
