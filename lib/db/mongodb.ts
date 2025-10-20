@@ -183,6 +183,11 @@ export class MongoDBOperations {
       .toArray();
   }
 
+  async getUserById(id: string): Promise<User | undefined> {
+    const c = await this.connection.getCollection<User>("users");
+    return (await c.findOne({ id })) || undefined;
+  }
+
   async updateUserOnlineStatus(userId: string, isOnline: boolean): Promise<void> {
     const c = await this.connection.getCollection<User>("users");
     await c.updateOne(
@@ -238,6 +243,11 @@ export class MongoDBOperations {
     return c.find({ postId }).sort({ createdAt: 1 }).toArray();
   }
 
+  async getReplyById(id: string): Promise<ForumReply | undefined> {
+    const c = await this.connection.getCollection<ForumReply>("forumReplies");
+    return (await c.findOne({ id })) || undefined;
+  }
+
   // === SESSIONS ===
   async saveSession(session: Session): Promise<void> {
     const c = await this.connection.getCollection<Session>("sessions");
@@ -247,6 +257,107 @@ export class MongoDBOperations {
   async getSessionByToken(token: string): Promise<Session | undefined> {
     const c = await this.connection.getCollection<Session>("sessions");
     return (await c.findOne({ token, expiresAt: { $gt: new Date() } })) || undefined;
+  }
+
+  async getSessions(): Promise<Session[]> {
+    const c = await this.connection.getCollection<Session>("sessions");
+    return c.find({}).toArray();
+  }
+
+  async deleteSession(token: string): Promise<void> {
+    const c = await this.connection.getCollection<Session>("sessions");
+    await c.deleteOne({ token });
+  }
+
+  // === PRIVATE MESSAGES ===
+  async getMessages(userId1: string, userId2: string): Promise<PrivateMessage[]> {
+    const c = await this.connection.getCollection<PrivateMessage>("privateMessages");
+    return c
+      .find({
+        $or: [
+          { senderId: userId1, receiverId: userId2 },
+          { senderId: userId2, receiverId: userId1 },
+        ],
+      })
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
+  async saveMessage(message: PrivateMessage): Promise<void> {
+    const c = await this.connection.getCollection<PrivateMessage>("privateMessages");
+    await c.updateOne({ id: message.id }, { $set: message }, { upsert: true });
+  }
+
+  async markMessageAsRead(messageId: string): Promise<void> {
+    const c = await this.connection.getCollection<PrivateMessage>("privateMessages");
+    await c.updateOne(
+      { id: messageId },
+      {
+        $set: {
+          isRead: true,
+          updatedAt: new Date(),
+        },
+      },
+    );
+  }
+
+  async getUnreadCount(userId: string): Promise<number> {
+    const c = await this.connection.getCollection<PrivateMessage>("privateMessages");
+    return c.countDocuments({ receiverId: userId, isRead: false });
+  }
+
+  // === TYPING STATUS ===
+  async getTypingStatus(userId: string): Promise<TypingStatus | undefined> {
+    const c = await this.connection.getCollection<TypingStatus>("typingStatuses");
+    return (await c.findOne({ userId })) || undefined;
+  }
+
+  async updateTypingStatus(status: TypingStatus): Promise<void> {
+    const c = await this.connection.getCollection<TypingStatus>("typingStatuses");
+    await c.updateOne({ userId: status.userId }, { $set: status }, { upsert: true });
+  }
+
+  // === GALLERY ALBUMS ===
+  async getAlbums(): Promise<GalleryAlbum[]> {
+    const c = await this.connection.getCollection<GalleryAlbum>("galleryAlbums");
+    return c.find({}).sort({ createdAt: -1 }).toArray();
+  }
+
+  async saveAlbum(album: GalleryAlbum): Promise<void> {
+    const c = await this.connection.getCollection<GalleryAlbum>("galleryAlbums");
+    await c.updateOne({ id: album.id }, { $set: album }, { upsert: true });
+  }
+
+  async getAlbumById(id: string): Promise<GalleryAlbum | undefined> {
+    const c = await this.connection.getCollection<GalleryAlbum>("galleryAlbums");
+    return (await c.findOne({ id })) || undefined;
+  }
+
+  async deleteAlbum(id: string): Promise<void> {
+    const c = await this.connection.getCollection<GalleryAlbum>("galleryAlbums");
+    await c.deleteOne({ id });
+  }
+
+  async getAlbumsByUser(userId: string): Promise<GalleryAlbum[]> {
+    const c = await this.connection.getCollection<GalleryAlbum>("galleryAlbums");
+    return c.find({ createdBy: userId }).sort({ createdAt: -1 }).toArray();
+  }
+
+  // === STATS ===
+  async getStats(): Promise<{
+    users: number;
+    posts: number;
+    replies: number;
+    messages: number;
+    albums: number;
+  }> {
+    const users = await (await this.connection.getCollection<User>("users")).countDocuments();
+    const posts = await (await this.connection.getCollection<ForumPost>("forumPosts")).countDocuments();
+    const replies = await (await this.connection.getCollection<ForumReply>("forumReplies")).countDocuments();
+    const messages = await (await this.connection.getCollection<PrivateMessage>("privateMessages")).countDocuments();
+    const albums = await (await this.connection.getCollection<GalleryAlbum>("galleryAlbums")).countDocuments();
+
+    return { users, posts, replies, messages, albums };
   }
 
   // === STATUS ===

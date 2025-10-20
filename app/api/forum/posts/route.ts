@@ -8,8 +8,27 @@ export async function GET() {
     if (!process.env.MONGODB_URI) {
       return NextResponse.json({ error: "Database not configured" }, { status: 503 })
     }
-    const posts = await storage.getPosts()
-    return NextResponse.json({ posts })
+    const posts = await storage.getPostsWithAuthors()
+
+    const aggregate = posts.reduce(
+      (acc, post) => {
+        acc.replies += post.replies
+        acc.reactions += post.reactions?.length || 0
+        acc.views += post.views || 0
+        return acc
+      },
+      { replies: 0, reactions: 0, views: 0 },
+    )
+
+    return NextResponse.json({
+      posts,
+      meta: {
+        totalPosts: posts.length,
+        totalReplies: aggregate.replies,
+        totalReactions: aggregate.reactions,
+        totalViews: aggregate.views,
+      },
+    })
   } catch (error) {
     console.error("Nazzel and Aviona Get posts error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

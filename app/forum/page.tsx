@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -43,15 +43,29 @@ import {
   SortAsc,
   Tag,
   Smile,
+  Filter,
+  TrendingUp,
+  Activity,
+  Crown,
+  Dot,
+  Clock3,
+  Bookmark,
+  ShieldCheck,
+  ArrowUpRight,
 } from "lucide-react"
-import type { ForumPost, User } from "@/lib/db/models"
+import type { LucideIcon } from "lucide-react"
+import type { ForumPostWithAuthor, User } from "@/lib/db/models"
 import { EnhancedHeader } from "@/components/enhanced-header"
 import { apiFetch } from "@/lib/utils"
 import { NotificationCenter } from "@/components/notification-center"
+import { buildThemeCssVariables, getForumTheme } from "@/config/forum-theme"
 
-const categories = ["Love Letters", "Memories", "Thoughts & Quotes", "Future Dreams", "Open Talks"]
+declare const process: { env: Record<string, string | undefined> }
 
-const categoryIcons = {
+const categories = ["Love Letters", "Memories", "Thoughts & Quotes", "Future Dreams", "Open Talks"] as const
+type ForumCategory = (typeof categories)[number]
+
+const categoryIcons: Record<ForumCategory, LucideIcon> = {
   "Love Letters": Heart,
   Memories: Camera,
   "Thoughts & Quotes": MessageCircle,
@@ -59,24 +73,61 @@ const categoryIcons = {
   "Open Talks": Globe,
 }
 
-const moodOptions = ["Happy", "Hopeful", "Sentimental", "Thoughtful", "Excited"]
+const moodOptions = ["Happy", "Hopeful", "Sentimental", "Thoughtful", "Excited"] as const
+type ForumMood = (typeof moodOptions)[number]
 
-const moodColors = {
-  Happy: "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300",
-  Hopeful: "bg-blue-100 dark:bg-blue-900/30 border-blue-300",
-  Sentimental: "bg-pink-100 dark:bg-pink-900/30 border-pink-300",
-  Thoughtful: "bg-purple-100 dark:bg-purple-900/30 border-purple-300",
-  Excited: "bg-orange-100 dark:bg-orange-900/30 border-orange-300",
+const moodColors: Record<ForumMood, string> = {
+  Happy: "bg-amber-50 border-amber-200",
+  Hopeful: "bg-sky-50 border-sky-200",
+  Sentimental: "bg-rose-50 border-rose-200",
+  Thoughtful: "bg-violet-50 border-violet-200",
+  Excited: "bg-orange-50 border-orange-200",
 }
 
-const reactionEmojis = ["❤️", "👍", "😂", "😮", "😢", "🔥"]
+const reactionEmojis = ["❤️", "👍", "😂", "😮", "😢", "🔥"] as const
+
+interface ForumMeta {
+  totalPosts: number
+  totalReplies: number
+  totalReactions: number
+  totalViews: number
+}
+
+const defaultStats: ForumMeta = {
+  totalPosts: 0,
+  totalReplies: 0,
+  totalReactions: 0,
+  totalViews: 0,
+}
+
+const themeKey = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_FORUM_THEME : undefined
+const themeTokens = getForumTheme(themeKey)
+const themeCssVariables = buildThemeCssVariables(themeTokens)
+
+const RELATIVE_TIME_DIVISIONS: Array<{ amount: number; unit: Intl.RelativeTimeFormatUnit }> = [
+  { amount: 60, unit: "second" },
+  { amount: 60, unit: "minute" },
+  { amount: 24, unit: "hour" },
+  { amount: 7, unit: "day" },
+  { amount: 4.34524, unit: "week" },
+  { amount: 12, unit: "month" },
+  { amount: Number.POSITIVE_INFINITY, unit: "year" },
+]
+
+interface ForumMeta {
+  totalPosts: number
+  totalReplies: number
+  totalReactions: number
+  totalViews: number
+}
 
 export default function ForumPage() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
-  const [posts, setPosts] = useState<ForumPost[]>([])
-  const [filteredPosts, setFilteredPosts] = useState<ForumPost[]>([])
+  const [posts, setPosts] = useState<ForumPostWithAuthor[]>([])
+  const [filteredPosts, setFilteredPosts] = useState<ForumPostWithAuthor[]>([])
   const [onlineUsers, setOnlineUsers] = useState<User[]>([])
+  const [stats, setStats] = useState<ForumMeta>(defaultStats)
   const [loading, setLoading] = useState(true)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [newPost, setNewPost] = useState({ title: "", content: "", category: "", tags: "", mood: "" })
@@ -89,12 +140,12 @@ export default function ForumPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<"newest" | "most-liked" | "most-discussed">("newest")
   const [coupleMode, setCoupleMode] = useState(false)
-  const [filterDialogOpen, setFilterDialogOpen] = useState(false)
+
+  const cssVariables = useMemo(() => themeCssVariables, [])
 
   useEffect(() => {
     const token = localStorage.getItem("authToken")
     if (token) {
-      // Fetch user data from API
       const fetchUser = async () => {
         try {
           const response = await apiFetch("/users/profile", {
@@ -111,11 +162,13 @@ export default function ForumPage() {
               updateOnlineStatus(true)
             }, 30000)
 
-            window.addEventListener("beforeunload", () => updateOnlineStatus(false))
+            const handleBeforeUnload = () => updateOnlineStatus(false)
+
+            window.addEventListener("beforeunload", handleBeforeUnload)
 
             return () => {
               clearInterval(interval)
-              window.removeEventListener("beforeunload", () => updateOnlineStatus(false))
+              window.removeEventListener("beforeunload", handleBeforeUnload)
             }
           }
         } catch (err) {
@@ -133,57 +186,76 @@ export default function ForumPage() {
   useEffect(() => {
     let filtered = [...posts]
 
-    // Category filter
     if (selectedCategory !== "all") {
       filtered = filtered.filter((post) => post.category === selectedCategory)
     }
 
-    // Search filter
     if (searchQuery) {
-      filtered = filtered.filter(
-        (post) =>
-          post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          post.tags?.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase())),
-      )
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter((post) => {
+        const titleMatch = post.title.toLowerCase().includes(query)
+        const contentMatch = post.content.toLowerCase().includes(query)
+        const tagMatch = post.tags?.some((tag) => tag.toLowerCase().includes(query))
+        const authorMatch = post.author?.username?.toLowerCase().includes(query)
+        return titleMatch || contentMatch || tagMatch || authorMatch
+      })
     }
 
-    // Couple mode filter (only posts by Nazzel and Avionna)
     if (coupleMode) {
-      filtered = filtered.filter(
-        (post) => post.username.toLowerCase() === "nazzel" || post.username.toLowerCase() === "avionna",
-      )
+      filtered = filtered.filter((post) => {
+        const username = post.author?.username || post.username
+        const normalized = username.toLowerCase()
+        return normalized === "nazzel" || normalized === "avionna"
+      })
     }
 
-    // Sort
-    switch (sortBy) {
-      case "newest":
-        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        break
-      case "most-liked":
-        filtered.sort((a, b) => (b.reactions?.length || 0) - (a.reactions?.length || 0))
-        break
-      case "most-discussed":
-        filtered.sort((a, b) => b.replies - a.replies)
-        break
-    }
+    filtered.sort((a, b) => {
+      const aDate = new Date(a.createdAt).getTime()
+      const bDate = new Date(b.createdAt).getTime()
+
+      switch (sortBy) {
+        case "most-liked":
+          return (b.reactions?.length || 0) - (a.reactions?.length || 0)
+        case "most-discussed":
+          return (b.replies || 0) - (a.replies || 0)
+        default:
+          return bDate - aDate
+      }
+    })
 
     setFilteredPosts(filtered)
   }, [posts, selectedCategory, searchQuery, sortBy, coupleMode])
 
-  const loadPosts = async () => {
+  const loadPosts = useCallback(async () => {
     try {
       const response = await apiFetch("/forum/posts")
       const data = await response.json()
-      setPosts(data.posts || [])
+      const normalized: ForumPostWithAuthor[] = (data.posts || []).map((post: ForumPostWithAuthor) => ({
+        ...post,
+        createdAt: new Date(post.createdAt),
+        updatedAt: new Date(post.updatedAt),
+        author: post.author
+          ? {
+              ...post.author,
+              lastSeen: post.author.lastSeen ? new Date(post.author.lastSeen) : new Date(post.updatedAt),
+            }
+          : undefined,
+        reactions: post.reactions?.map((reaction) => ({
+          ...reaction,
+          createdAt: new Date(reaction.createdAt),
+        })) || [],
+      }))
+
+      setPosts(normalized)
+      setStats(data.meta || defaultStats)
     } catch (err) {
       console.error("Nazzel and Aviona Load posts error:", err)
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const loadOnlineUsers = async () => {
+  const loadOnlineUsers = useCallback(async () => {
     try {
       const response = await apiFetch("/users/online")
       const data = await response.json()
@@ -191,9 +263,9 @@ export default function ForumPage() {
     } catch (err) {
       console.error("Nazzel and Aviona Load online users error:", err)
     }
-  }
+  }, [])
 
-  const updateOnlineStatus = async (isOnline: boolean) => {
+  const updateOnlineStatus = useCallback(async (isOnline: boolean) => {
     try {
       const token = localStorage.getItem("authToken")
       if (!token) return
@@ -213,80 +285,89 @@ export default function ForumPage() {
     } catch (err) {
       console.error("Nazzel and Aviona Update online status error:", err)
     }
-  }
+  }, [loadOnlineUsers])
 
-  const trackPostView = async (postId: string) => {
-    try {
-      await apiFetch(`/forum/posts/${postId}/view`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user?.id }),
-      })
-      loadPosts()
-    } catch (err) {
-      console.error("Nazzel and Aviona Track view error:", err)
-    }
-  }
+  const trackPostView = useCallback(
+    async (postId: string) => {
+      try {
+        await apiFetch(`/forum/posts/${postId}/view`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user?.id }),
+        })
+        loadPosts()
+      } catch (err) {
+        console.error("Nazzel and Aviona Track view error:", err)
+      }
+    },
+    [loadPosts, user?.id],
+  )
 
-  const handleReaction = async (postId: string, emoji: string) => {
-    if (!user) {
-      router.push("/signup/account")
-      return
-    }
-
-    try {
-      const token = localStorage.getItem("authToken")
-      await apiFetch(`/forum/posts/${postId}/react`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ emoji }),
-      })
-      loadPosts()
-    } catch (err) {
-      console.error("Nazzel and Aviona Reaction error:", err)
-    }
-  }
-
-  const handleShare = async (postId: string, platform: string) => {
-    try {
-      await apiFetch(`/forum/posts/${postId}/share`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      })
-      loadPosts()
-
-      const post = posts.find((p) => p.id === postId)
-      if (!post) return
-
-      const shareUrl = `${window.location.origin}/forum?post=${postId}`
-      const shareText = `Check out this post: ${post.title}`
-
-      switch (platform) {
-        case "facebook":
-          window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, "_blank")
-          break
-        case "twitter":
-          window.open(
-            `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
-            "_blank",
-          )
-          break
-        case "instagram":
-          navigator.clipboard.writeText(`${shareText}\n${shareUrl}`)
-          alert("Link copied to clipboard! You can now paste it on Instagram.")
-          break
+  const handleReaction = useCallback(
+    async (postId: string, emoji: string) => {
+      if (!user) {
+        router.push("/signup/account")
+        return
       }
 
-      setShareDialogOpen(false)
-    } catch (err) {
-      console.error("Nazzel and Aviona Share error:", err)
-    }
-  }
+      try {
+        const token = localStorage.getItem("authToken")
+        await apiFetch(`/forum/posts/${postId}/react`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ emoji }),
+        })
+        loadPosts()
+      } catch (err) {
+        console.error("Nazzel and Aviona Reaction error:", err)
+      }
+    },
+    [loadPosts, router, user],
+  )
 
-  const handleCreatePost = async () => {
+  const handleShare = useCallback(
+    async (postId: string, platform: string) => {
+      try {
+        await apiFetch(`/forum/posts/${postId}/share`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        })
+        loadPosts()
+
+        const post = posts.find((p) => p.id === postId)
+        if (!post) return
+
+        const shareUrl = `${window.location.origin}/forum?post=${postId}`
+        const shareText = `Check out this post: ${post.title}`
+
+        switch (platform) {
+          case "facebook":
+            window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, "_blank")
+            break
+          case "twitter":
+            window.open(
+              `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
+              "_blank",
+            )
+            break
+          case "instagram":
+            await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`)
+            alert("Link copied to clipboard! You can now paste it on Instagram.")
+            break
+        }
+
+        setShareDialogOpen(false)
+      } catch (err) {
+        console.error("Nazzel and Aviona Share error:", err)
+      }
+    },
+    [loadPosts, posts],
+  )
+
+  const handleCreatePost = useCallback(async () => {
     setError("")
 
     if (!newPost.title || !newPost.content || !newPost.category) {
@@ -333,9 +414,9 @@ export default function ForumPage() {
     } finally {
       setSubmitting(false)
     }
-  }
+  }, [loadPosts, newPost])
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     await updateOnlineStatus(false)
     const token = localStorage.getItem("authToken")
     if (token) {
@@ -353,9 +434,9 @@ export default function ForumPage() {
     }
     setUser(null)
     router.push("/login")
-  }
+  }, [router, updateOnlineStatus])
 
-  const handleCreatePostClick = () => {
+  const handleCreatePostClick = useCallback(() => {
     if (!user) {
       router.push("/signup/account")
       return
@@ -365,415 +446,496 @@ export default function ForumPage() {
       return
     }
     setCreateDialogOpen(true)
-  }
+  }, [router, user])
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString("en-US", {
+  const formatDate = useCallback((date: Date | string) => {
+    const target = new Date(date)
+    return target.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
     })
-  }
+  }, [])
 
-  const getReactionCount = (reactions: any[], emoji: string) => {
+  const formatRelativeTime = useCallback((date?: Date | string) => {
+    if (!date) return "Unknown"
+    const parsed = new Date(date)
+    if (Number.isNaN(parsed.getTime())) return "Unknown"
+    return formatDistanceToNow(parsed, { addSuffix: true })
+  }, [])
+
+  const getReactionCount = useCallback((reactions: any[], emoji: string) => {
     return reactions.filter((r) => r.emoji === emoji).length
-  }
+  }, [])
 
-  const hasUserReacted = (reactions: any[], emoji: string) => {
-    return reactions.some((r) => r.userId === user?.id && r.emoji === emoji)
-  }
+  const hasUserReacted = useCallback(
+    (reactions: any[], emoji: string) => {
+      return reactions.some((r) => r.userId === user?.id && r.emoji === emoji)
+    },
+    [user?.id],
+  )
+
+  const trendingTags = useMemo(() => {
+    const counts = new Map<string, number>()
+    posts.forEach((post) => {
+      post.tags?.forEach((tag) => {
+        counts.set(tag, (counts.get(tag) || 0) + 1)
+      })
+    })
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+  }, [posts])
+
+  const highlightPosts = useMemo(() => filteredPosts.slice(0, 3), [filteredPosts])
+
+  const offlineAuthors = useMemo(() => {
+    const unique = new Map<string, { username: string; lastSeen?: Date }>()
+    posts.forEach((post) => {
+      if (!post.author) return
+      if (post.author.isOnline) return
+      if (!unique.has(post.author.id)) {
+        unique.set(post.author.id, {
+          username: post.author.username,
+          lastSeen: post.author.lastSeen,
+        })
+      }
+    })
+    return Array.from(unique.values()).slice(0, 10)
+  }, [posts])
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center romantic-gradient">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-[var(--forum-surface-muted)]" style={cssVariables}>
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--forum-primary)]" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen romantic-gradient">
-      <div className="container max-w-7xl mx-auto p-4 md:p-8">
-        <div className="mb-8">
-          <EnhancedHeader />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
-              <div>
-                <h1 className="text-4xl font-serif font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent mb-2">
-                  Forum Discussions
-                </h1>
-                <p className="text-muted-foreground font-medium">
-                  Two hearts, one forum — where our story continues forever
-                </p>
-              </div>
-              {user ? (
-                <div className="flex items-center gap-3">
-                  <NotificationCenter />
-                  <div className="flex items-center gap-2 bg-card px-4 py-2 rounded-full shadow-lg">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-gradient-to-br from-rose-500 to-pink-500 text-white font-bold">
-                        {user.username.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-sm">{user.username}</span>
-                      <span className="text-xs text-muted-foreground capitalize">{user.role || "guest"}</span>
+    <div className="min-h-screen bg-[var(--forum-surface-muted)]" style={cssVariables}>
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 opacity-80" style={{ background: themeTokens.heroGradient }} />
+        <div className="relative">
+          <div className="container max-w-7xl mx-auto px-4 pt-8">
+            <EnhancedHeader />
+          </div>
+          <section className="container max-w-7xl mx-auto px-4 pb-12">
+            <div className="mt-10 grid gap-6 lg:grid-cols-12">
+              <Card className="lg:col-span-8 border-0 bg-[var(--forum-surface)]/90 shadow-xl backdrop-blur-md">
+                <CardContent className="p-6 md:p-8">
+                  <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 text-sm font-medium text-[var(--forum-foreground-muted)]">
+                        <Crown className="h-4 w-4 text-[var(--forum-secondary)]" />
+                        Featured space for Nazzel & Avionna
+                      </div>
+                      <h1 className="mt-3 text-3xl md:text-4xl font-serif text-[var(--forum-foreground)]">
+                        A professional forum crafted for your love story
+                      </h1>
+                      <p className="mt-3 max-w-2xl text-base text-[var(--forum-foreground-muted)]">
+                        Capture milestones, build conversations, and celebrate your journey with a live community hub.
+                        Everything here is synced with MongoDB, so your memories stay safe and always online.
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-3 w-full md:w-auto">
+                      <Button size="lg" className="justify-center shadow-lg" onClick={handleCreatePostClick}>
+                        <Plus className="mr-2 h-5 w-5" />
+                        Start a new conversation
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="justify-center border-[var(--forum-border)] text-[var(--forum-foreground)]"
+                        onClick={() => document.getElementById("forum-feed")?.scrollIntoView({ behavior: "smooth" })}
+                      >
+                        Explore discussions
+                        <ArrowUpRight className="ml-2 h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={handleLogout} className="font-semibold bg-transparent">
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Logout
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <Button variant="outline" size="sm" onClick={() => router.push("/login")} className="font-semibold">
-                    Login
-                  </Button>
-                  <Button size="sm" onClick={() => router.push("/signup/account")} className="font-semibold">
-                    Sign Up
-                  </Button>
-                </div>
-              )}
+                  <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      {
+                        label: "Published Posts",
+                        value: stats.totalPosts,
+                        icon: MessageSquare,
+                      },
+                      {
+                        label: "Community Replies",
+                        value: stats.totalReplies,
+                        icon: Activity,
+                      },
+                      {
+                        label: "Reactions Shared",
+                        value: stats.totalReactions,
+                        icon: Heart,
+                      },
+                      {
+                        label: "Total Views",
+                        value: stats.totalViews,
+                        icon: Eye,
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        className="rounded-2xl border border-[var(--forum-border)] bg-[var(--forum-surface-accent)] p-4 shadow-sm"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="rounded-full bg-[var(--forum-secondary)]/10 p-2 text-[var(--forum-secondary)]">
+                            <item.icon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[var(--forum-foreground-muted)]">
+                              {item.label}
+                            </p>
+                            <p className="mt-1 text-xl font-semibold text-[var(--forum-foreground)]">{item.value}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="lg:col-span-4 border-0 bg-[var(--forum-sidebar-bg)] text-[var(--forum-foreground)]">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <ShieldCheck className="h-5 w-5 text-[var(--forum-accent)]" />
+                    Member Presence
+                  </CardTitle>
+                  <CardDescription className="text-[var(--forum-foreground-muted)]">
+                    Realtime status synced with MongoDB — see who’s online and who recently dropped by.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div>
+                    <div className="flex items-center justify-between text-sm font-medium text-[var(--forum-foreground-muted)]">
+                      <span>Online right now</span>
+                      <span>{onlineUsers.length}</span>
+                    </div>
+                    <div className="mt-3 space-y-3">
+                      {onlineUsers.length === 0 ? (
+                        <p className="text-sm text-[var(--forum-foreground-muted)]">No one is online just yet.</p>
+                      ) : (
+                        onlineUsers.slice(0, 6).map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="relative">
+                                <Avatar className="h-9 w-9">
+                                  <AvatarFallback className="bg-[var(--forum-secondary)] text-white font-bold">
+                                    {item.username.charAt(0).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-[var(--forum-foreground)]">{item.username}</p>
+                                <p className="text-xs text-[var(--forum-foreground-muted)] capitalize">
+                                  {item.role || "member"}
+                                </p>
+                              </div>
+                            </div>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-1 text-xs font-semibold text-emerald-600">
+                              <Dot className="h-3 w-3" />
+                              Online
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {offlineAuthors.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-[var(--forum-foreground-muted)]">Recently active</p>
+                      <div className="mt-3 space-y-2">
+                        {offlineAuthors.map((item) => (
+                          <div key={item.username} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="h-2 w-2 rounded-full bg-gray-400" />
+                              <span className="font-medium text-[var(--forum-foreground)]">{item.username}</span>
+                            </div>
+                            <span className="text-[var(--forum-foreground-muted)]">{formatRelativeTime(item.lastSeen)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
+          </section>
+        </div>
+      </div>
 
-            {!user && (
-              <Alert className="mb-6 border-primary/50 bg-primary/5">
-                <Lock className="h-4 w-4" />
-                <AlertDescription className="font-medium">
-                  You can view discussions, but you need to{" "}
-                  <Link href="/account/signup" className="text-primary hover:underline font-bold">
-                    sign up
-                  </Link>{" "}
-                  and become a member to post and participate.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {user && user.role !== "member" && user.role !== "admin" && (
-              <Alert className="mb-6 border-orange-500/50 bg-orange-500/5">
-                <AlertCircle className="h-4 w-4 text-orange-500" />
-                <AlertDescription className="font-medium text-orange-700">
-                  Please verify your email to become a member and start posting in the forum.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <div className="mb-6 space-y-4">
-              <div className="flex gap-3 flex-wrap">
-                <div className="flex-1 min-w-[200px]">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <main id="forum-feed" className="container max-w-7xl mx-auto px-4 pb-16">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <section className="space-y-6">
+            <Card className="border border-[var(--forum-border)] bg-[var(--forum-surface)] shadow-lg">
+              <CardContent className="p-6 space-y-6">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="relative flex-1 min-w-[240px]">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--forum-foreground-muted)]" />
                     <Input
-                      placeholder="Search posts, tags..."
+                      placeholder="Search by title, content, tags, or author"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 font-medium"
+                      className="h-12 rounded-xl border-[var(--forum-border)] bg-[var(--forum-surface-muted)] pl-11 font-medium"
                     />
                   </div>
-                </div>
-                <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-                  <SelectTrigger className="w-[180px] font-medium">
-                    <SortAsc className="h-4 w-4 mr-2" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">Newest First</SelectItem>
-                    <SelectItem value="most-liked">Most Liked</SelectItem>
-                    <SelectItem value="most-discussed">Most Discussed</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant={coupleMode ? "default" : "outline"}
-                  onClick={() => setCoupleMode(!coupleMode)}
-                  className="font-semibold"
-                >
-                  <Heart className="h-4 w-4 mr-2" />
-                  Couple Mode
-                </Button>
-              </div>
-
-              <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
-                <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto gap-2 bg-card p-2">
-                  <TabsTrigger value="all" className="font-semibold">
-                    All Posts
-                  </TabsTrigger>
-                  {categories.map((cat) => {
-                    const Icon = categoryIcons[cat as keyof typeof categoryIcons]
-                    return (
-                      <TabsTrigger key={cat} value={cat} className="font-semibold">
-                        <Icon className="h-4 w-4 mr-2" />
-                        {cat}
-                      </TabsTrigger>
-                    )
-                  })}
-                </TabsList>
-              </Tabs>
-            </div>
-
-            <div className="mb-6">
-              <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button size="lg" className="font-semibold shadow-lg btn-glow" onClick={handleCreatePostClick}>
-                    <Plus className="h-5 w-5 mr-2" />
-                    Create New Post
+                  <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                    <SelectTrigger className="w-[200px] h-12 rounded-xl border-[var(--forum-border)] bg-[var(--forum-surface-muted)] font-medium">
+                      <SortAsc className="h-4 w-4 mr-2 text-[var(--forum-secondary)]" />
+                      <SelectValue placeholder="Sort" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Newest first</SelectItem>
+                      <SelectItem value="most-liked">Most reactions</SelectItem>
+                      <SelectItem value="most-discussed">Most discussed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant={coupleMode ? "default" : "outline"}
+                    onClick={() => setCoupleMode((prev) => !prev)}
+                    className="h-12 rounded-xl border-[var(--forum-border)] font-semibold"
+                  >
+                    <Heart className="h-4 w-4 mr-2" /> Couple mode
                   </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle className="text-2xl font-serif">Create New Post</DialogTitle>
-                    <DialogDescription>Share your thoughts with the community</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 mt-4">
-                    {error && (
-                      <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>{error}</AlertDescription>
-                      </Alert>
-                    )}
+                </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="category" className="font-semibold">
-                        Category
-                      </Label>
-                      <Select
-                        value={newPost.category}
-                        onValueChange={(value) => setNewPost({ ...newPost, category: value })}
+                <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
+                  <TabsList className="flex w-full flex-wrap justify-start gap-2 rounded-2xl bg-[var(--forum-surface-muted)] p-2">
+                    <TabsTrigger
+                      value="all"
+                      className="rounded-xl px-4 py-2 text-sm font-semibold transition"
+                    >
+                      <Filter className="mr-2 h-4 w-4" />
+                      All posts
+                    </TabsTrigger>
+                    {categories.map((cat) => {
+                      const Icon = categoryIcons[cat as keyof typeof categoryIcons]
+                      return (
+                        <TabsTrigger
+                          key={cat}
+                          value={cat}
+                          className="rounded-xl px-4 py-2 text-sm font-semibold transition"
+                        >
+                          <Icon className="mr-2 h-4 w-4" />
+                          {cat}
+                        </TabsTrigger>
+                      )
+                    })}
+                  </TabsList>
+                </Tabs>
+              </CardContent>
+            </Card>
+
+            {highlightPosts.length > 0 && (
+              <div className="grid gap-4 md:grid-cols-3">
+                {highlightPosts.map((post) => (
+                  <Card
+                    key={post.id}
+                    className="group border border-[var(--forum-border)] bg-[var(--forum-surface-accent)] shadow-sm transition hover:shadow-lg"
+                  >
+                    <CardContent className="p-5 space-y-4">
+                      <Badge className="w-fit bg-[var(--forum-secondary)]/20 text-[var(--forum-secondary)]">
+                        Spotlight
+                      </Badge>
+                      <p className="line-clamp-3 text-sm text-[var(--forum-foreground-muted)]">{post.content}</p>
+                      <Button
+                        variant="ghost"
+                        className="p-0 text-sm font-semibold text-[var(--forum-secondary)] hover:text-[var(--forum-secondary)]"
+                        onClick={() => trackPostView(post.id)}
                       >
-                        <SelectTrigger className="font-medium">
-                          <SelectValue placeholder="Select a category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((cat) => {
-                            const Icon = categoryIcons[cat as keyof typeof categoryIcons]
-                            return (
-                              <SelectItem key={cat} value={cat} className="font-medium">
-                                <div className="flex items-center gap-2">
-                                  <Icon className="h-4 w-4" />
-                                  {cat}
-                                </div>
-                              </SelectItem>
-                            )
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="mood" className="font-semibold">
-                        Mood (Optional)
-                      </Label>
-                      <Select value={newPost.mood} onValueChange={(value) => setNewPost({ ...newPost, mood: value })}>
-                        <SelectTrigger className="font-medium">
-                          <SelectValue placeholder="Select your mood" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {moodOptions.map((mood) => (
-                            <SelectItem key={mood} value={mood} className="font-medium">
-                              <div className="flex items-center gap-2">
-                                <Smile className="h-4 w-4" />
-                                {mood}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="title" className="font-semibold">
-                        Title
-                      </Label>
-                      <Input
-                        id="title"
-                        placeholder="Enter post title"
-                        value={newPost.title}
-                        onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
-                        className="font-medium"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="tags" className="font-semibold">
-                        Tags (Optional)
-                      </Label>
-                      <Input
-                        id="tags"
-                        placeholder="anniversary, promise, memory (comma-separated)"
-                        value={newPost.tags}
-                        onChange={(e) => setNewPost({ ...newPost, tags: e.target.value })}
-                        className="font-medium"
-                      />
-                      <p className="text-xs text-muted-foreground">Separate tags with commas</p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="content" className="font-semibold">
-                        Content
-                      </Label>
-                      <Textarea
-                        id="content"
-                        placeholder="Write your post content..."
-                        value={newPost.content}
-                        onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
-                        rows={6}
-                        className="font-medium resize-none"
-                      />
-                    </div>
-
-                    <div className="flex justify-end gap-3">
-                      <Button variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={submitting}>
-                        Cancel
+                        Continue reading
+                        <ArrowUpRight className="ml-2 h-4 w-4" />
                       </Button>
-                      <Button onClick={handleCreatePost} disabled={submitting} className="font-semibold">
-                        {submitting ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Posting...
-                          </>
-                        ) : (
-                          "Create Post"
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
 
             {filteredPosts.length === 0 ? (
-              <Card className="shadow-lg border-0">
-                <CardContent className="flex flex-col items-center justify-center py-16">
-                  <Users className="h-16 w-16 text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">No posts found</h3>
-                  <p className="text-muted-foreground mb-4">
+              <Card className="border border-dashed border-[var(--forum-border)] bg-[var(--forum-surface)] text-center">
+                <CardContent className="space-y-4 py-16">
+                  <Users className="mx-auto h-12 w-12 text-[var(--forum-foreground-muted)]" />
+                  <h3 className="text-xl font-semibold text-[var(--forum-foreground)]">No posts found</h3>
+                  <p className="text-sm text-[var(--forum-foreground-muted)]">
                     {searchQuery || selectedCategory !== "all" || coupleMode
-                      ? "Try adjusting your filters"
-                      : "Be the first to start a discussion!"}
+                      ? "Try refining your filters or search keywords."
+                      : "Start the very first discussion for today."}
                   </p>
                   {user && !searchQuery && selectedCategory === "all" && !coupleMode && (
                     <Button onClick={() => setCreateDialogOpen(true)} className="font-semibold">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create First Post
+                      <Plus className="mr-2 h-4 w-4" />
+                      Launch the first thread
                     </Button>
                   )}
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {filteredPosts.map((post) => {
                   const Icon = categoryIcons[post.category as keyof typeof categoryIcons]
-                  const moodClass = post.mood ? moodColors[post.mood as keyof typeof moodColors] : ""
+                  const moodColorClass = post.mood
+                    ? {
+                        Happy: "bg-amber-50 border-amber-200",
+                        Hopeful: "bg-sky-50 border-sky-200",
+                        Sentimental: "bg-rose-50 border-rose-200",
+                        Thoughtful: "bg-violet-50 border-violet-200",
+                        Excited: "bg-orange-50 border-orange-200",
+                      }[post.mood as keyof typeof moodOptions]
+                    : "bg-[var(--forum-surface)] border-[var(--forum-border)]"
+
+                  const author = post.author ?? {
+                    username: post.username,
+                    role: "guest",
+                    isOnline: false,
+                    lastSeen: post.createdAt,
+                  }
 
                   return (
                     <Card
                       key={post.id}
-                      className={`shadow-lg border-2 hover:shadow-xl transition-all animate-fade-in-up ${moodClass}`}
+                      className={`group border-2 ${moodColorClass} overflow-hidden shadow-sm transition hover:shadow-lg`}
                       onClick={() => trackPostView(post.id)}
                     >
-                      <CardHeader>
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <Badge variant="secondary" className="font-semibold">
-                                <Icon className="h-3 w-3 mr-1" />
-                                {post.category}
+                      <CardContent className="p-6 space-y-5">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-[var(--forum-foreground-muted)]">
+                              <Badge className="bg-[var(--forum-secondary)]/15 text-[var(--forum-secondary)]">
+                                <Icon className="mr-2 h-3 w-3" /> {post.category}
                               </Badge>
                               {post.mood && (
-                                <Badge variant="outline" className="font-semibold">
-                                  <Smile className="h-3 w-3 mr-1" />
+                                <Badge variant="outline" className="border-dashed text-[var(--forum-foreground-muted)]">
+                                  <Smile className="mr-2 h-3 w-3" />
                                   {post.mood}
                                 </Badge>
                               )}
-                              <span className="text-xs text-muted-foreground">{formatDate(post.createdAt)}</span>
+                              <span>{formatDate(post.createdAt)}</span>
                             </div>
-                            <CardTitle className="text-2xl font-serif mb-2 hover:text-primary transition-colors cursor-pointer">
+                            <h2 className="text-2xl font-serif text-[var(--forum-foreground)] transition group-hover:text-[var(--forum-secondary)]">
                               {post.title}
-                            </CardTitle>
-                            <CardDescription className="flex items-center gap-2 font-medium">
-                              <Avatar className="h-6 w-6">
-                                <AvatarFallback className="bg-gradient-to-br from-rose-400 to-pink-400 text-white text-xs font-bold">
-                                  {post.username.charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              {post.username}
-                            </CardDescription>
+                            </h2>
+                          </div>
+                          <div className="flex items-center gap-3 rounded-full border border-[var(--forum-border)] bg-white/60 px-4 py-2 backdrop-blur">
+                            <Avatar className="h-9 w-9">
+                              <AvatarFallback className="bg-[var(--forum-primary)]/20 text-[var(--forum-primary)] font-semibold">
+                                {(author.username || post.username).charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="leading-tight">
+                              <p className="text-sm font-semibold text-[var(--forum-foreground)]">{author.username || post.username}</p>
+                              <p className="text-xs text-[var(--forum-foreground-muted)] capitalize">
+                                {author.role || "member"}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1 text-xs font-semibold">
+                              <span
+                                className={`h-2 w-2 rounded-full ${author.isOnline ? "bg-emerald-500" : "bg-slate-400"}`}
+                              />
+                              <span className="text-[var(--forum-foreground-muted)]">
+                                {author.isOnline ? "Online" : formatRelativeTime(author.lastSeen)}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-foreground mb-4 leading-relaxed font-medium">{post.content}</p>
+
+                        <p className="line-clamp-4 text-[var(--forum-foreground)]/90 leading-relaxed">{post.content}</p>
 
                         {post.tags && post.tags.length > 0 && (
-                          <div className="flex items-center gap-2 mb-4 flex-wrap">
-                            {post.tags.map((tag, index) => (
-                              <Badge key={index} variant="outline" className="font-medium">
-                                <Tag className="h-3 w-3 mr-1" />#{tag}
+                          <div className="flex flex-wrap items-center gap-2">
+                            {post.tags.map((tag) => (
+                              <Badge
+                                key={tag}
+                                variant="outline"
+                                className="rounded-full border-[var(--forum-border)] bg-white/60 text-[var(--forum-foreground-muted)]"
+                              >
+                                <Tag className="mr-1 h-3 w-3" />#{tag}
                               </Badge>
                             ))}
                           </div>
                         )}
 
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3 pb-3 border-b">
-                          <div className="flex items-center gap-1 font-semibold">
-                            <Eye className="h-4 w-4" />
-                            {post.views || 0}
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                          <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-[var(--forum-foreground-muted)]">
+                            <span className="flex items-center gap-2">
+                              <Eye className="h-4 w-4" /> {post.views || 0} views
+                            </span>
+                            <span className="flex items-center gap-2">
+                              <Users className="h-4 w-4" /> {post.seenBy?.length || 0} readers
+                            </span>
+                            <span className="flex items-center gap-2">
+                              <MessageSquare className="h-4 w-4" /> {post.replies || 0} replies
+                            </span>
+                            <span className="flex items-center gap-2">
+                              <Share2 className="h-4 w-4" /> {post.shares || 0} shares
+                            </span>
                           </div>
-                          <div className="flex items-center gap-1 font-semibold">
-                            <Users className="h-4 w-4" />
-                            {post.seenBy?.length || 0}
-                          </div>
-                          <div className="flex items-center gap-1 font-semibold">
-                            <MessageSquare className="h-4 w-4" />
-                            {post.replies}
-                          </div>
-                          <div className="flex items-center gap-1 font-semibold">
-                            <Share2 className="h-4 w-4" />
-                            {post.shares || 0}
+                          <div className="flex flex-wrap items-center gap-2">
+                            {reactionEmojis.map((emoji) => {
+                              const count = getReactionCount(post.reactions || [], emoji)
+                              const reacted = hasUserReacted(post.reactions || [], emoji)
+                              return (
+                                <button
+                                  key={emoji}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleReaction(post.id, emoji)
+                                  }}
+                                  className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold transition ${
+                                    reacted
+                                      ? "bg-[var(--forum-primary)] text-white shadow"
+                                      : "bg-white/70 text-[var(--forum-foreground)] hover:bg-white"
+                                  }`}
+                                >
+                                  <span>{emoji}</span>
+                                  {count > 0 && <span>{count}</span>}
+                                </button>
+                              )
+                            })}
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 mb-3 flex-wrap">
-                          {reactionEmojis.map((emoji) => {
-                            const count = getReactionCount(post.reactions || [], emoji)
-                            const hasReacted = hasUserReacted(post.reactions || [], emoji)
-                            return (
-                              <button
-                                key={emoji}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleReaction(post.id, emoji)
-                                }}
-                                className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold transition-all ${
-                                  hasReacted
-                                    ? "bg-primary text-primary-foreground animate-pulse-heart"
-                                    : "bg-secondary hover:bg-secondary/80"
-                                }`}
-                              >
-                                <span>{emoji}</span>
-                                {count > 0 && <span>{count}</span>}
-                              </button>
-                            )
-                          })}
-                        </div>
-
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-3">
                           <Button
                             variant="outline"
                             size="sm"
+                            className="rounded-full border-[var(--forum-border)]"
                             onClick={(e) => {
                               e.stopPropagation()
                               setSharePostId(post.id)
                               setShareDialogOpen(true)
                             }}
-                            className="font-semibold"
                           >
-                            <Share2 className="h-4 w-4 mr-2" />
-                            Share
+                            <Share2 className="mr-2 h-4 w-4" /> Share
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="rounded-full text-[var(--forum-foreground-muted)] hover:text-[var(--forum-secondary)]"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                            }}
+                          >
+                            <Bookmark className="mr-2 h-4 w-4" /> Save to library
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="rounded-full text-[var(--forum-foreground-muted)] hover:text-[var(--forum-secondary)]"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                            }}
+                          >
+                            <Clock3 className="mr-2 h-4 w-4" /> View timeline
                           </Button>
                         </div>
                       </CardContent>
@@ -783,89 +945,268 @@ export default function ForumPage() {
               </div>
             )}
 
-            <div className="mt-8 text-center">
-              <p className="text-sm text-muted-foreground font-medium">
-                Please follow our{" "}
-                <Link href="/legal/terms" className="text-primary hover:underline font-semibold">
+            <div className="rounded-3xl border border-[var(--forum-border)] bg-[var(--forum-surface-muted)] p-6 text-center">
+              <p className="text-sm text-[var(--forum-foreground-muted)]">
+                Please follow our {" "}
+                <Link href="/legal/terms" className="font-semibold text-[var(--forum-secondary)] hover:underline">
                   community guidelines
                 </Link>{" "}
-                when posting
+                when posting.
               </p>
             </div>
-          </div>
+          </section>
 
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <Card className="shadow-lg border-0 sticky top-4">
-              <CardHeader>
-                <CardTitle className="text-lg font-serif flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
-                  Online Users ({onlineUsers.length})
+          <aside className="space-y-6">
+            <Card className="border border-[var(--forum-border)] bg-[var(--forum-surface)] shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <TrendingUp className="h-5 w-5 text-[var(--forum-secondary)]" /> Trending tags
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                {onlineUsers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No users online</p>
+              <CardContent className="flex flex-wrap gap-2">
+                {trendingTags.length === 0 ? (
+                  <p className="text-sm text-[var(--forum-foreground-muted)]">No tags yet — start tagging your posts!</p>
                 ) : (
-                  <div className="space-y-3">
-                    {onlineUsers.map((onlineUser) => (
-                      <div key={onlineUser.id} className="flex items-center gap-2 animate-slide-in-right">
-                        <div className="relative">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="bg-gradient-to-br from-rose-400 to-pink-400 text-white text-xs font-bold">
-                              {onlineUser.username.charAt(0).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 rounded-full border-2 border-white animate-pulse-heart" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold truncate">{onlineUser.username}</p>
-                          <p className="text-xs text-muted-foreground capitalize">{onlineUser.role || "member"}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  trendingTags.map(([tag, count]) => (
+                    <Badge
+                      key={tag}
+                      className="rounded-full border-[var(--forum-border)] bg-white/70 text-[var(--forum-foreground)]"
+                    >
+                      #{tag} · {count}
+                    </Badge>
+                  ))
                 )}
               </CardContent>
             </Card>
-          </div>
-        </div>
 
-        <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="text-xl font-serif">Share Post</DialogTitle>
-              <DialogDescription>Choose a platform to share this post</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3 mt-4">
-              <Button
-                variant="outline"
-                className="w-full justify-start font-semibold bg-transparent"
-                onClick={() => sharePostId && handleShare(sharePostId, "facebook")}
-              >
-                <Facebook className="h-5 w-5 mr-3 text-blue-600" />
-                Share on Facebook
+            <Card className="border border-[var(--forum-border)] bg-[var(--forum-surface)] shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Activity className="h-5 w-5 text-[var(--forum-primary)]" /> Activity checklist
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-xs text-[var(--forum-foreground-muted)]">
+                <div className="flex items-start gap-3">
+                  <Dot className="mt-1 h-5 w-5 text-[var(--forum-secondary)]" />
+                  <div>
+                    <p className="font-semibold text-[var(--forum-foreground)]">Stay verified</p>
+                    <p>Verified members can publish instantly. Complete your email verification to unlock full access.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Dot className="mt-1 h-5 w-5 text-[var(--forum-secondary)]" />
+                  <div>
+                    <p className="font-semibold text-[var(--forum-foreground)]">Curate your memories</p>
+                    <p>Tag posts with themes like promises, milestones, or celebrations for quick discovery later.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Dot className="mt-1 h-5 w-5 text-[var(--forum-secondary)]" />
+                  <div>
+                    <p className="font-semibold text-[var(--forum-foreground)]">Celebrate together</p>
+                    <p>Use reactions and replies to keep the conversation alive. Everything is logged securely in MongoDB.</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border border-[var(--forum-border)] bg-[var(--forum-surface)] shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Users className="h-5 w-5 text-[var(--forum-primary)]" /> Team spotlight
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm text-[var(--forum-foreground-muted)]">
+                <div className="rounded-2xl border border-[var(--forum-border)] bg-white/70 p-4">
+                  <p className="text-[var(--forum-foreground)] font-semibold">Professional layout</p>
+                  <p>Crafted for a premium forum experience with themed visuals controlled from `.env`.</p>
+                </div>
+                <div className="rounded-2xl border border-[var(--forum-border)] bg-white/70 p-4">
+                  <p className="text-[var(--forum-foreground)] font-semibold">MongoDB connectivity</p>
+                  <p>Online presence, authors, and stats are driven directly from your live database.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </aside>
+        </div>
+      </main>
+
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-serif text-[var(--forum-foreground)]">Create new post</DialogTitle>
+            <DialogDescription className="text-[var(--forum-foreground-muted)]">
+              Share your next chapter with the community.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="category" className="font-semibold">
+                  Category
+                </Label>
+                <Select value={newPost.category} onValueChange={(value) => setNewPost({ ...newPost, category: value })}>
+                  <SelectTrigger className="font-medium">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => {
+                      const Icon = categoryIcons[cat as keyof typeof categoryIcons]
+                      return (
+                        <SelectItem key={cat} value={cat} className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" />
+                            {cat}
+                          </div>
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="mood" className="font-semibold">
+                  Mood (optional)
+                </Label>
+                <Select value={newPost.mood} onValueChange={(value) => setNewPost({ ...newPost, mood: value })}>
+                  <SelectTrigger className="font-medium">
+                    <SelectValue placeholder="Select your mood" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {moodOptions.map((mood) => (
+                      <SelectItem key={mood} value={mood} className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <Smile className="h-4 w-4" />
+                          {mood}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="title" className="font-semibold">
+                Title
+              </Label>
+              <Input
+                id="title"
+                placeholder="Give your story a headline"
+                value={newPost.title}
+                onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
+                className="font-medium"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tags" className="font-semibold">
+                Tags (optional)
+              </Label>
+              <Input
+                id="tags"
+                placeholder="anniversary, promise, milestone"
+                value={newPost.tags}
+                onChange={(e) => setNewPost({ ...newPost, tags: e.target.value })}
+                className="font-medium"
+              />
+              <p className="text-xs text-[var(--forum-foreground-muted)]">Separate tags with commas to boost discovery.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="content" className="font-semibold">
+                Content
+              </Label>
+              <Textarea
+                id="content"
+                placeholder="Share your message..."
+                value={newPost.content}
+                onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
+                rows={6}
+                className="font-medium"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={submitting}>
+                Cancel
               </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start font-semibold bg-transparent"
-                onClick={() => sharePostId && handleShare(sharePostId, "twitter")}
-              >
-                <Twitter className="h-5 w-5 mr-3 text-sky-500" />
-                Share on Twitter
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start font-semibold bg-transparent"
-                onClick={() => sharePostId && handleShare(sharePostId, "instagram")}
-              >
-                <Instagram className="h-5 w-5 mr-3 text-pink-600" />
-                Copy for Instagram
+              <Button onClick={handleCreatePost} disabled={submitting}>
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Posting...
+                  </>
+                ) : (
+                  "Publish"
+                )}
               </Button>
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-serif text-[var(--forum-foreground)]">Share post</DialogTitle>
+            <DialogDescription className="text-[var(--forum-foreground-muted)]">
+              Broadcast this story to your favorite platforms.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-4">
+            <Button
+              variant="outline"
+              className="w-full justify-start border-[var(--forum-border)] bg-white/80 font-semibold"
+              onClick={() => sharePostId && handleShare(sharePostId, "facebook")}
+            >
+              <Facebook className="mr-3 h-5 w-5 text-blue-600" /> Share on Facebook
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start border-[var(--forum-border)] bg-white/80 font-semibold"
+              onClick={() => sharePostId && handleShare(sharePostId, "twitter")}
+            >
+              <Twitter className="mr-3 h-5 w-5 text-sky-500" /> Share on Twitter
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start border-[var(--forum-border)] bg-white/80 font-semibold"
+              onClick={() => sharePostId && handleShare(sharePostId, "instagram")}
+            >
+              <Instagram className="mr-3 h-5 w-5 text-pink-500" /> Copy for Instagram
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {!user && (
+        <div className="fixed bottom-6 left-1/2 z-30 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2">
+          <Card className="border border-[var(--forum-border)] bg-[var(--forum-surface)] shadow-xl">
+            <CardContent className="flex flex-col items-center gap-4 p-5 text-center md:flex-row md:justify-between md:text-left">
+              <div>
+                <p className="text-sm font-semibold text-[var(--forum-foreground)]">Create a free account</p>
+                <p className="text-xs text-[var(--forum-foreground-muted)]">
+                  Join the conversation, track replies, and sync your posts securely with MongoDB.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => router.push("/login")}>
+                  Login
+                </Button>
+                <Button onClick={() => router.push("/signup/account")}>Sign up</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

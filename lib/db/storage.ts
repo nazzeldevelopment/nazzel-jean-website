@@ -31,8 +31,7 @@ class Storage {
   }
 
   async getUserById(id: string): Promise<User | undefined> {
-    const users = await mongodb.getUsersByIds([id])
-    return users[0]
+    return mongodb.getUserById(id)
   }
 
   async getOnlineUsers(): Promise<User[]> {
@@ -61,13 +60,16 @@ class Storage {
     const authorIds = Array.from(new Set(posts.map((post) => post.userId)))
     const authors = await mongodb.getUsersByIds(authorIds)
     const authorMap = new Map<string, ForumAuthorSummary>(
-      authors.map((author) => [author.id, {
-        id: author.id,
-        username: author.username,
-        role: author.role,
-        isOnline: author.isOnline,
-        lastSeen: author.lastSeen,
-      }]),
+      authors.map((author) => [
+        author.id,
+        {
+          id: author.id,
+          username: author.username,
+          role: author.role,
+          isOnline: author.isOnline,
+          lastSeen: author.lastSeen,
+        },
+      ]),
     )
 
     return posts.map((post) => ({
@@ -93,8 +95,7 @@ class Storage {
   }
 
   async getReplyById(replyId: string): Promise<ForumReply | undefined> {
-    const replies = await mongodb.getRepliesByIds([replyId])
-    return replies[0]
+    return mongodb.getReplyById(replyId)
   }
 
   // SESSIONS
