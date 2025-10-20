@@ -47,6 +47,10 @@ Set the following variables in your deployment platform (Vercel dashboard, `.env
   - Comma-separated list of hosts that should bypass subdomain handling.
   - Example: `forum.nazzelandavionna.site,internal.example.com`
   - Useful when certain hosts should not receive the `x-subdomain` header.
+- `NEXT_PUBLIC_SUBDOMAIN_ROUTES`
+  - Comma-separated `subdomain=/target/path` pairs defining how each subdomain should resolve.
+  - Example: `docs=/knowledge-base,blog=/stories`
+  - When at least one entry is present, subdomains without explicit mappings fall back to a same-name path (e.g., `gallery.domain.com` → `/gallery`). If this variable is empty, requests hit the core site paths without rewriting.
 
 > Important: Do **not** include protocol prefixes (`https://`) in `NEXT_PUBLIC_DIRECT_HOSTS`.
 
@@ -61,6 +65,9 @@ The middleware (`middleware.ts`) inspects every request:
 3. If not, verifies that the host matches `*.apex-domain`.
 4. Extracts the subdomain portion (e.g., `blog` from `blog.nazzelandavionna.site`).
 5. Adds `x-subdomain` to the request headers so pages/API routes can respond to subdomain-specific logic.
+6. Rewrites subdomains based on the mapping list supplied via `NEXT_PUBLIC_SUBDOMAIN_ROUTES`. When mappings exist, any subdomain without a specific entry falls back to a same-name path (e.g., `gallery.domain.com` → `/gallery`).
+
+Any path requested after the subdomain is appended to the resolved base path. For example, `home.domain.com/about` renders the content from `/home/about`.
 
 ### Match Configuration
 

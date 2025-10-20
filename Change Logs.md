@@ -12,9 +12,11 @@ Introduced middleware to detect wildcard subdomains and forward the extracted va
   - Computes the apex domain from `NEXT_PUBLIC_SITE_URL` and auto-allows the apex plus `www`.
   - Whitelists direct hosts from `NEXT_PUBLIC_DIRECT_HOSTS` as well as `localhost` and `127.0.0.1`.
   - Extracts the subdomain portion for wildcard hosts and injects it into the `x-subdomain` request header for downstream handlers.
+  - Rewrites subdomains based on pairs supplied through `NEXT_PUBLIC_SUBDOMAIN_ROUTES`; when at least one mapping is defined, other subdomains fall back to a same-name path (e.g., `gallery.domain.com` → `/gallery`).
 - **Environment** Documented expected variables:
   - `NEXT_PUBLIC_SITE_URL` must point to the apex domain (e.g., `https://www.nazzelandavionna.site`).
   - `NEXT_PUBLIC_DIRECT_HOSTS` can list comma-separated hosts that should bypass subdomain processing (optional).
+  - `NEXT_PUBLIC_SUBDOMAIN_ROUTES` accepts comma-separated `subdomain=/path` pairs to override routing defaults.
 
 ### Deployment Notes
 
