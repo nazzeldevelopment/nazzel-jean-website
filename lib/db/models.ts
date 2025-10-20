@@ -44,6 +44,18 @@ export interface ForumPost {
   updatedAt: Date
 }
 
+export interface ForumAuthorSummary {
+  id: string
+  username: string
+  role?: "member" | "admin" | "guest"
+  isOnline: boolean
+  lastSeen: Date
+}
+
+export interface ForumPostWithAuthor extends ForumPost {
+  author: ForumAuthorSummary
+}
+
 // 💬 Forum Reply Interface
 export interface ForumReply {
   id: string

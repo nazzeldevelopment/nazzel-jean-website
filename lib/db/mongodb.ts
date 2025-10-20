@@ -167,7 +167,34 @@ export class MongoDBOperations {
 
   async getOnlineUsers(): Promise<User[]> {
     const c = await this.connection.getCollection<User>("users");
-    return c.find({ isOnline: true }).toArray();
+    return c
+      .find({ isOnline: true })
+      .project({ password: 0 })
+      .sort({ username: 1 })
+      .toArray();
+  }
+
+  async getUsersByIds(ids: string[]): Promise<User[]> {
+    if (!ids.length) return [];
+    const c = await this.connection.getCollection<User>("users");
+    return c
+      .find({ id: { $in: ids } })
+      .project({ password: 0 })
+      .toArray();
+  }
+
+  async updateUserOnlineStatus(userId: string, isOnline: boolean): Promise<void> {
+    const c = await this.connection.getCollection<User>("users");
+    await c.updateOne(
+      { id: userId },
+      {
+        $set: {
+          isOnline,
+          lastSeen: new Date(),
+          updatedAt: new Date(),
+        },
+      },
+    );
   }
 
   async saveUser(user: User): Promise<void> {
@@ -188,12 +215,27 @@ export class MongoDBOperations {
   // === FORUM POSTS ===
   async getPosts(): Promise<ForumPost[]> {
     const c = await this.connection.getCollection<ForumPost>("forumPosts");
-    return c.find({}).toArray();
+    return c.find({}).sort({ createdAt: -1 }).toArray();
   }
 
   async getForumPostById(id: string): Promise<ForumPost | undefined> {
     const c = await this.connection.getCollection<ForumPost>("forumPosts");
     return (await c.findOne({ id })) || undefined;
+  }
+
+  async savePost(post: ForumPost): Promise<void> {
+    const c = await this.connection.getCollection<ForumPost>("forumPosts");
+    await c.updateOne({ id: post.id }, { $set: post }, { upsert: true });
+  }
+
+  async saveReply(reply: ForumReply): Promise<void> {
+    const c = await this.connection.getCollection<ForumReply>("forumReplies");
+    await c.updateOne({ id: reply.id }, { $set: reply }, { upsert: true });
+  }
+
+  async getReplies(postId: string): Promise<ForumReply[]> {
+    const c = await this.connection.getCollection<ForumReply>("forumReplies");
+    return c.find({ postId }).sort({ createdAt: 1 }).toArray();
   }
 
   // === SESSIONS ===

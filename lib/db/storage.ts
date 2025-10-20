@@ -3,7 +3,9 @@ import { mongodb } from "./mongodb"
 import type {
   User,
   ForumPost,
+  ForumPostWithAuthor,
   ForumReply,
+  ForumAuthorSummary,
   Session,
   PrivateMessage,
   TypingStatus,
@@ -29,7 +31,8 @@ class Storage {
   }
 
   async getUserById(id: string): Promise<User | undefined> {
-    return mongodb.getUserById(id)
+    const users = await mongodb.getUsersByIds([id])
+    return users[0]
   }
 
   async getOnlineUsers(): Promise<User[]> {
@@ -50,7 +53,34 @@ class Storage {
   }
 
   async getPostById(id: string): Promise<ForumPost | undefined> {
-    return mongodb.getPostById(id)
+    return mongodb.getForumPostById(id)
+  }
+
+  async getPostsWithAuthors(): Promise<ForumPostWithAuthor[]> {
+    const posts = await mongodb.getPosts()
+    const authorIds = Array.from(new Set(posts.map((post) => post.userId)))
+    const authors = await mongodb.getUsersByIds(authorIds)
+    const authorMap = new Map<string, ForumAuthorSummary>(
+      authors.map((author) => [author.id, {
+        id: author.id,
+        username: author.username,
+        role: author.role,
+        isOnline: author.isOnline,
+        lastSeen: author.lastSeen,
+      }]),
+    )
+
+    return posts.map((post) => ({
+      ...post,
+      author:
+        authorMap.get(post.userId) || {
+          id: post.userId,
+          username: post.username,
+          role: "guest",
+          isOnline: false,
+          lastSeen: post.createdAt,
+        },
+    }))
   }
 
   // FORUM REPLIES
@@ -63,7 +93,8 @@ class Storage {
   }
 
   async getReplyById(replyId: string): Promise<ForumReply | undefined> {
-    return mongodb.getReplyById(replyId)
+    const replies = await mongodb.getRepliesByIds([replyId])
+    return replies[0]
   }
 
   // SESSIONS
