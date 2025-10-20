@@ -1,0 +1,22 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Rename Website",
+			"type": "shell",
+			"command": "npm run rename-website",
+			"args": [],
+			"group": "build"
+		},
+		{
+			"label": "Rename Website",
+			"type": "shell",
+			"command": "npm run rename-website",
+			"args": [
+				"--name",
+				"Nazzel & Avionna"
+			],
+			"group": "build"
+		}
+	]
+}

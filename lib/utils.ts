@@ -6,7 +6,8 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // External API base URL for mobile apps and web client
-export const API_BASE_URL: string = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://www.nazzelandavionna.site/api'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.nazzelandavionna.site'
+export const API_BASE_URL: string = process.env.NEXT_PUBLIC_API_BASE_URL || `${SITE_URL}/api`
 
 type ApiFetchOptions = RequestInit & { headers?: Record<string, string> }
 

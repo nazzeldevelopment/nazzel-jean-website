@@ -1,8 +1,10 @@
 import { Resend } from 'resend';
 
 // -------------------- ENV Variables --------------------
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || 'Nazzel & Avionna'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.nazzelandavionna.site'
 const DEFAULT_FROM_EMAIL =
-  process.env.EMAIL_FROM || process.env.NOREPLY_EMAIL || "no-reply@nazzelandavionna.site"
+  process.env.EMAIL_FROM || process.env.NOREPLY_EMAIL || `no-reply@${new URL(SITE_URL).hostname}`
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "nazzelv.quinto@gmail.com"
 
 // -------------------- Environment Validation --------------------
@@ -25,7 +27,7 @@ export const resend = new Resend(process.env.RESEND_API_KEY || '');
 // -------------------- Email Templates --------------------
 export const emailTemplates = {
   emailVerification: (username: string, verificationCode: string) => ({
-    subject: "✨ Verify Your Email - Nazzel & Avionna",
+  subject: `✨ Verify Your Email - ${SITE_NAME}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -182,7 +184,7 @@ export const emailTemplates = {
       <body>
         <div class="container">
           <div class="header">
-            <h1>💕 Nazzel & Avionna 💕</h1>
+            <h1>💕 ${SITE_NAME} 💕</h1>
           </div>
           
           <div class="content">
@@ -193,7 +195,7 @@ export const emailTemplates = {
             <div class="verification-code">${verificationCode}</div>
             
             <div class="btn-container">
-              <a href="https://www.nazzelandavionna.site/account/verify-email?code=${verificationCode}" class="btn">Verify Email Now</a>
+              <a href="${SITE_URL}/account/verify-email?code=${verificationCode}" class="btn">Verify Email Now</a>
             </div>
             
             <div class="note">
@@ -204,13 +206,13 @@ export const emailTemplates = {
             
             <div class="signature">
               With love,<br>
-              <strong>Nazzel & Avionna</strong> 💕
+              <strong>${SITE_NAME}</strong> 💕
             </div>
           </div>
           
           <div class="footer">
             <p>This email was sent from ${DEFAULT_FROM_EMAIL}</p>
-            <div class="copyright">© 2025 Nazzel & Avionna's Love Story. All rights reserved.</div>
+            <div class="copyright">© ${new Date().getFullYear()} ${SITE_NAME}'s Love Story. All rights reserved.</div>
           </div>
         </div>
       </body>
@@ -219,7 +221,7 @@ export const emailTemplates = {
   }),
 
   passwordReset: (username: string, resetCode: string) => ({
-    subject: "🔐 Reset Your Password - Nazzel & Avionna",
+  subject: `🔐 Reset Your Password - ${SITE_NAME}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -387,7 +389,7 @@ export const emailTemplates = {
             <div class="reset-code">${resetCode}</div>
             
             <div class="btn-container">
-              <a href="https://www.nazzelandavionna.site/account/reset-password?code=${resetCode}" class="btn">Reset Password</a>
+              <a href="${SITE_URL}/account/reset-password?code=${resetCode}" class="btn">Reset Password</a>
             </div>
             
             <div class="warning">
@@ -398,13 +400,13 @@ export const emailTemplates = {
             
             <div class="signature">
               With love,<br>
-              <strong>Nazzel & Avionna</strong> 💕
+              <strong>${SITE_NAME}</strong> 💕
             </div>
           </div>
           
           <div class="footer">
             <p>This email was sent from ${DEFAULT_FROM_EMAIL}</p>
-            <div class="copyright">© 2025 Nazzel & Avionna's Love Story. All rights reserved.</div>
+            <div class="copyright">© ${new Date().getFullYear()} ${SITE_NAME}'s Love Story. All rights reserved.</div>
           </div>
         </div>
       </body>
@@ -432,11 +434,11 @@ export async function sendEmail({
       throw new Error("Resend API key not configured properly")
     }
 
-    console.log(`Attempting to send email to ${to} from ${from}`)
+  console.log(`Attempting to send email to ${to} from ${from}`)
 
     try {
       const data = await resend.emails.send({
-        from: `Nazzel & Avionna <${DEFAULT_FROM_EMAIL}>`,
+        from: `${SITE_NAME} <${DEFAULT_FROM_EMAIL}>`,
         to: [to],
         subject: subject,
         html: html,

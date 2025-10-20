@@ -2,6 +2,7 @@ User-agent: *
 Allow: /
 
 # Sitemap location
+# If you rename your site, set NEXT_PUBLIC_SITE_URL in your environment and update this file accordingly.
 Sitemap: https://www.nazzelandavionna.site/sitemap.xml
 
 # Allow all major search engines

@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- NOTE: This is a static sitemap. To keep the domain in sync with your environment,
+     set NEXT_PUBLIC_SITE_URL or rely on the dynamic sitemap at /sitemap.xml generated
+     by `app/sitemap.ts` which already reads NEXT_PUBLIC_SITE_URL. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9

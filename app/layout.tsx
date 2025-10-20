@@ -20,10 +20,14 @@ const inter = Inter({
   display: "swap",
 })
 
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || 'Nazzel & Avionna'
+const SITE_TAGLINE = process.env.NEXT_PUBLIC_SITE_TAGLINE || 'Our Love Story Forever'
+const SITE_DESCRIPTION = process.env.NEXT_PUBLIC_SITE_DESCRIPTION ||
+  "Welcome to the official page of Nazzel and Avionna — a story of love, faith, and forever. Discover our journey together, filled with laughter, adventures, and unbreakable bond."
+
 export const metadata: Metadata = {
-  title: "Nazzel & Avionna | Our Love Story Forever",
-  description:
-    "Welcome to the official page of Nazzel and Avionna — a story of love, faith, and forever. Discover our journey together, filled with laughter, adventures, and unbreakable bond.",
+  title: `${SITE_NAME} | ${SITE_TAGLINE}`,
+  description: SITE_DESCRIPTION,
   keywords: [
     "Nazzel",
     "Avionna", 
@@ -49,16 +53,16 @@ export const metadata: Metadata = {
     canonical: '/',
   },
   openGraph: {
-    title: "Nazzel & Avionna | Our Love Story Forever",
-    description: "Welcome to the official page of Nazzel and Avionna — a story of love, faith, and forever. Discover our journey together, filled with laughter, adventures, and unbreakable bond.",
-    url: 'https://www.nazzelandavionna.site',
-    siteName: 'Nazzel & Avionna',
+  title: `${SITE_NAME} | ${SITE_TAGLINE}`,
+  description: SITE_DESCRIPTION,
+  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://www.nazzelandavionna.site',
+  siteName: SITE_NAME,
     images: [
       {
         url: '/romantic-couple-sitting-together-outdoors-warm-sun.jpg',
         width: 1200,
         height: 630,
-        alt: 'Nazzel and Avionna - Our Love Story',
+  alt: `${SITE_NAME} - ${SITE_TAGLINE}`,
       },
     ],
     locale: 'en_US',
@@ -66,8 +70,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: "Nazzel & Avionna | Our Love Story Forever",
-    description: "Welcome to the official page of Nazzel and Avionna — a story of love, faith, and forever.",
+  title: `${SITE_NAME} | ${SITE_TAGLINE}`,
+  description: SITE_DESCRIPTION,
     images: ['/romantic-couple-sitting-together-outdoors-warm-sun.jpg'],
   },
   robots: {

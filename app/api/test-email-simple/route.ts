@@ -6,19 +6,16 @@ export async function POST(request: Request) {
     console.log("=== EMAIL TEST START ===")
     
     // Check environment variables
-    console.log("Environment check:")
-    console.log("- SMTP_HOST:", process.env.SMTP_HOST || "NOT SET")
-    console.log("- SMTP_PORT:", process.env.SMTP_PORT || "NOT SET")
-    console.log("- SMTP_USER:", process.env.SMTP_USER || "NOT SET")
-    console.log("- SMTP_PASS:", process.env.SMTP_PASS ? "SET" : "NOT SET")
-    console.log("- EMAIL_FROM:", process.env.EMAIL_FROM || "NOT SET")
-    console.log("- ADMIN_EMAIL:", process.env.ADMIN_EMAIL || "NOT SET")
+  console.log("Environment check:")
+  console.log("- RESEND_API_KEY:", !!process.env.RESEND_API_KEY ? "SET" : "NOT SET")
+  console.log("- EMAIL_FROM:", process.env.EMAIL_FROM || "NOT SET")
+  console.log("- ADMIN_EMAIL:", process.env.ADMIN_EMAIL || "NOT SET")
 
     // Validate configuration
     if (!validateEmailConfig()) {
       return NextResponse.json({ 
         error: "Email configuration invalid",
-        details: "Missing required SMTP environment variables"
+        details: "Missing required RESEND_API_KEY"
       }, { status: 503 })
     }
 
@@ -37,17 +34,16 @@ export async function POST(request: Request) {
       subject: "🧪 Test Email - Nazzel & Avionna",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #ff6b9d;">Test Email from Nazzel & Avionna</h2>
+          <h2 style="color: #ff6b9d;">Test Email from ${process.env.NEXT_PUBLIC_SITE_NAME || 'Nazzel & Avionna'}</h2>
           <p>If you received this email, the system is working correctly!</p>
-          <p><strong>From:</strong> no-reply@nazzelandavionna.site</p>
+          <p><strong>From:</strong> ${process.env.EMAIL_FROM || process.env.NOREPLY_EMAIL || `no-reply@${new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.nazzelandavionna.site').hostname}`}</p>
           <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
           <hr>
           <p style="color: #666; font-size: 12px;">
             This is a test email to verify email delivery functionality.
           </p>
         </div>
-      `,
-      immediate: true
+      `
     })
 
     console.log("=== EMAIL TEST SUCCESS ===")
